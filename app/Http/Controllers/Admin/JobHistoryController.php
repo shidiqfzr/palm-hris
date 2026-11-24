@@ -9,6 +9,7 @@ use App\Services\MutasiService;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 
 class JobHistoryController extends Controller
 {
@@ -112,6 +113,22 @@ class JobHistoryController extends Controller
             'tanggal_sk' => 'nullable|date',
             'catatan' => 'nullable|string|max:2000',
         ]);
+
+        // Baris selain mutasi resmi bukan SK Direksi (DOMAIN.md §2.2): nomor dan tanggal SK tidak dapat ditambahkan lewat
+        // penyuntingan manual. Nilai lama yang sudah tersimpan dipertahankan agar baris tetap dapat disunting.
+        if ($job_history->isRecordOnly()) {
+            $stored = ['nomor_sk' => (string) $job_history->nomor_sk, 'tanggal_sk' => (string) $job_history->tanggal_sk?->format('Y-m-d')];
+            $errors = [];
+            foreach ($stored as $field => $current) {
+                $given = (string) ($data[$field] ?? '');
+                if ($given !== '' && $given !== $current) {
+                    $errors[$field] = 'Riwayat ini adalah catatan data kepegawaian, bukan SK mutasi, sehingga SK tidak dapat diisi di sini. Catat SK lewat modul Mutasi.';
+                }
+            }
+            if ($errors !== []) {
+                throw ValidationException::withMessages($errors);
+            }
+        }
 
         // Riwayat hasil rekonstruksi Bezetting tetap catatan tertutup tanpa SK (DOMAIN.md §5.5 butir 2 dan 4): baris
         // terbuka akan dihitung sebagai pemegang formasi, dan SK hanya berasal dari modul Mutasi.

@@ -161,7 +161,7 @@ Follows the five SDLC stages of `ENGINEERING.md` §1.
 - What "Penugasan sebagai …" means as a status, confirmed by HR during review.
 - Named HR verifier and approver (roles are set in §5.9 and §5.1 step 7).
 - Reviewer capacity; grouped bulk decisions are the mitigation.
-- **Pre-existing, outside this project (found in phase 3):** the manual edit of a history row (`JobHistoryController::update`) lets an admin type an SK number or mutation type on any record-only row (`data_awal`, `pembaruan_data`, `impor`), although `DOMAIN.md` §2.2 says those rows must not carry SK data. Phase 3 closes this for `bezetting` rows only; widening it to every record-only source is a separate decision for the user.
+- **Pre-existing, outside this project (found in phase 3):** the manual edit of a history row (`JobHistoryController::update`) lets an admin type an SK number or mutation type on any record-only row (`data_awal`, `pembaruan_data`, `impor`), although `DOMAIN.md` §2.2 says those rows must not carry SK data. Closed after the user's approval: no record-only row can be given a new SK number or date (a stored legacy value is kept so the row stays editable), the edit form explains this instead of showing the SK inputs, and `bezetting` rows additionally keep an end date and no mutation type.
 
 ## 10. Profiling findings (read-only, 22 files, 2026-11-24)
 
