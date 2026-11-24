@@ -64,7 +64,7 @@ class JobHistory extends Model
 
     protected $fillable = [
         'sumber',
-        'import_log_id',
+        'backfill_run_id',
         'tmt_awal_diperkirakan',
         'jenis_perubahan_terdeteksi',
         'teks_sumber',
@@ -213,10 +213,10 @@ class JobHistory extends Model
         return $this->belongsTo(Employee::class, 'employee_nik', 'nik');
     }
 
-    /** Log impor asal baris `bezetting` (pengaju, penyetuju, SHA-256 berkas); null untuk sumber lain. */
-    public function importLog()
+    /** Proses rekonstruksi asal baris `bezetting` (pengaju, penyetuju, SHA-256 berkas); null untuk sumber lain. */
+    public function backfillRun()
     {
-        return $this->belongsTo(EmployeeImportLog::class, 'import_log_id');
+        return $this->belongsTo(BezettingBackfillRun::class, 'backfill_run_id');
     }
 
     /** Label bisnis perubahan hasil deteksi Bezetting, atau null bila tidak ada. */

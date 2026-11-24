@@ -18,7 +18,7 @@ Why not a direct load: a snapshot says *where* someone was, not *why* they moved
 - Atomic commit (`DB::transaction()`), file identity by SHA-256, undo that never hard-deletes.
 - Existing app data always wins; the backfill only fills time before each employee's earliest existing row.
 - Every uncertain value is marked, never silently trusted; the original text from the file is kept.
-- Provenance on every row: import log, source period, acting user, approver.
+- Provenance on every row: backfill run, source period, acting user, approver.
 
 **Non-goals**
 - Karpel history (no files); history before 2025 (no files).
@@ -41,7 +41,7 @@ Why not a direct load: a snapshot says *where* someone was, not *why* they moved
 - One test class per system under test (`AGENTS.md` rule 5).
 - UI text in official business terms, never internal document names or `SSOT` (rule 6); "Karyawan" terminology (rule 7). New code and docs in English, UI strings in Indonesian.
 - UU PDP: staged data is encrypted, minimized (§5.9) and purged; screens and stored reports mask NIK (`12****78`).
-- Reuse, do not duplicate (`ENGINEERING.md` §2.4): the `EmployeeImportService` / `EmployeeImportGovernanceService` pattern (token, SHA-256, maker-checker, undo, typed confirmation `BATALKAN`), `EmployeeImportLog`, `ConcurrentJobTextParser` for position text, `PensiunService::separate()` for separations, the shared data table for review lists.
+- Reuse, do not duplicate (`ENGINEERING.md` §2.4): the `EmployeeImportService` / `EmployeeImportGovernanceService` pattern (token, SHA-256, maker-checker, undo, typed confirmation `BATALKAN`), `ConcurrentJobTextParser` for position text, `PensiunService::separate()` for separations, the shared data table for review lists.
 
 ## 4. Decisions made with the user
 
@@ -62,14 +62,14 @@ Why not a direct load: a snapshot says *where* someone was, not *why* they moved
 ### 5.1 Pipeline
 
 0. **Prerequisite.** Everyone in the latest file (October 2026) who is still employed exists in `employees`, loaded through the existing Employee Import. The backfill never creates active employees.
-1. **Stage.** Up to 22 files in one session. Per file: MIME type and size check, private disk, SHA-256, period read from the title row ("PER <BULAN> <TAHUN>") and checked against the file name; sheet names are ignored (they are wrong in two files). Only the columns in §5.9 are staged, encrypted.
+1. **Stage.** Up to 22 files in one run (`bezetting_backfill_runs`, its own table so the Employee Import batch list and undo never touch it). Per file: MIME type and size check, SHA-256, period read from the title row ("PER <BULAN> <TAHUN>") and checked against the file name; sheet names are ignored (they are wrong in two files). Only the columns in §5.9 are read; they are stored encrypted on the run and **the uploaded file is deleted right after reading**.
 2. **Normalize.** Columns are found by header name, never position. Dates from Excel serials or `dd-mm-yyyy` text. NIK: 8 digits; 7-digit values are flagged for HR, never padded. Column-number rows, formula row numbers and text outside the table are dropped. A duplicate NIK in one file is an exception. In files without a Unit Kerja column, the unit is the nearest section heading above the row.
 3. **Resolve names** (§5.2).
 4. **Parse position text** (§5.3).
 5. **Diff.** A pure class compares month N with N-1 per NIK and emits: first appearance in the window, change of position, unit, status or golongan class, a concurrent duty starting or ending, and leaving the list. A step-only golongan change (`/02` to `/03`, the July increment) is not an event. Leaving the list is not a separation (§5.6). Someone who leaves and reappears produces a gap, not two careers.
 6. **Plan (dry run).** Rows to write, plus exceptions (§5.7). Nothing is written.
 7. **Approve and commit.** A second admin approves, **always**, regardless of `hris.import.require_approval`, which defaults to off. The maker cannot approve their own submission. One atomic transaction. The commit refuses if the files or the review decisions changed since the plan was approved (SHA-256 of files plus plan).
-8. **Undo.** Within the undo window, per import log: soft delete with a reason; typed confirmation above the threshold (`hris.import.typed_confirmation_threshold`); refused if later changes touched the rows.
+8. **Undo.** Within the undo window, per run: soft delete with a reason; typed confirmation above the threshold (`hris.import.typed_confirmation_threshold`); refused if later changes touched the rows.
 
 ### 5.2 Name resolution (units and positions)
 
@@ -88,7 +88,7 @@ Position cells carry more than a title: "Penugasan sebagai Kepala Bagian Tanaman
 ### 5.4 Data model changes (migrations, nullable, backward compatible)
 
 - `job_histories.sumber` gains `bezetting` ("Bezetting Historis"). `impor` keeps its meaning (concurrent duties from Employee Import).
-- `job_histories.import_log_id`: nullable FK to `employee_import_logs`, the audit and undo link. `batch_id` stays reserved for SK groups.
+- `job_histories.backfill_run_id`: nullable FK to `bezetting_backfill_runs`, the audit and undo link. `batch_id` stays reserved for SK groups.
 - `job_histories.tmt_awal_diperkirakan`: boolean, default false (decision 3).
 - `job_histories.jenis_perubahan_terdeteksi`: nullable string, descriptive only (`PENEMPATAN_AWAL`, `PERUBAHAN_JABATAN`, `PERUBAHAN_UNIT`, `PERUBAHAN_STATUS`, `PERUBAHAN_GOLONGAN`, `TUGAS_RANGKAP`). `jenis_mutasi` stays NULL.
 - `job_histories.teks_sumber`: nullable string, the unit and position text as written in the file (no personal data).
@@ -97,7 +97,7 @@ Position cells carry more than a title: "Penugasan sebagai Kepala Bagian Tanaman
 
 ### 5.5 Row rules
 
-- `sumber = bezetting`, `nomor_sk`/`tanggal_sk` NULL, `jenis_mutasi` NULL, `is_applied = true`, `level` from the file (Karpim), `golongan` as at the start of the row, `created_by` = maker, `import_log_id` set.
+- `sumber = bezetting`, `nomor_sk`/`tanggal_sk` NULL, `jenis_mutasi` NULL, `is_applied = true`, `level` from the file (Karpim), `golongan` as at the start of the row, `created_by` = maker, `backfill_run_id` set.
 - Every backfilled row is closed (`tmt_akhir` set). The last one closes the day before the employee's earliest existing row. Backfilled rows are never open, so they never count as seat holders.
 - An employee with no existing row at all gets no open row from the backfill. The current open row remains the job of the employee record and its observer (`data_awal`). A mismatch between the last snapshot and the employee record is an exception.
 - Changes seen in the files after the employee's earliest existing row are **not written**. They are reported as "movement not recorded in the application", for HR to process through Mutasi with its SK.
@@ -113,7 +113,7 @@ Position cells carry more than a title: "Penugasan sebagai Kepala Bagian Tanaman
 ### 5.7 Review experience (`DESIGN.md`)
 
 - Exception groups: unmapped unit name, unmapped position text, status phrase to confirm, invalid or 7-digit NIK, duplicate NIK in a file, date conflict or blank date, conflict with an existing row, movement not recorded in the application, gap, person not in the application, last snapshot differs from the employee record.
-- Each group has a bulk decision (map, accept estimated date, skip, defer). Decisions are saved and resumable. Commit is blocked while anything is undecided; "defer" excludes those employees and lists them.
+- Three classes. **Name decisions** (unit, position text, status phrase) block the commit until HR maps, keeps as written, or skips each name; decisions are saved and resumable. **Person exclusions** (NIK not 8 digits, duplicate NIK in a file, not in the application, no current history, already reconstructed) do not block: the person is left out of this run and listed. **Information** (estimated dates, gaps, leaving the list, movement not recorded in the application) is reported only.
 - Built on the shared data table (`DESIGN.md` §7.5), with blocking versus warning rules (§7.2), confirmation modals for commit and undo (§7.6), explicit loading states (§7.7). Desktop-first, since this is an admin screen.
 
 ### 5.8 Display and side effects
@@ -125,14 +125,14 @@ Position cells carry more than a title: "Penugasan sebagai Kepala Bagian Tanaman
 ### 5.9 Security, retention and access (`SECURITY.md`)
 
 - **Staged columns only:** NIK, name and birth date (for HR verification only), position text, unit text, level, golongan, `TGL. DALAM JABATAN`, `TMT DI BAGIAN/UNIT KERJA`, `TGL PENSIUN`. Not staged: religion, gender, education, school, marital status, birthplace, old SAP number, grades not used by history.
-- Staged data is encrypted, readable only through the service, and kept until commit plus the undo window, or at most 30 days for an abandoned session. Then it is purged by the existing scheduled purge commands. Uploaded files are deleted on the same schedule.
+- Staged data is encrypted on the run, hidden from serialization, readable only through the service, and cleared after commit plus the undo window, or after at most 30 days for a run that is not completed, by a daily scheduled purge. Uploaded files are deleted as soon as they are read; only their names and SHA-256 are kept.
 - Permission `karyawan.import` for every step (Gate, not role). Session token is a UUID. Report downloads are rate-limited.
 - The HR verification lists (7-digit NIKs; people who left the list) carry full NIK. They are an authorized download only, logged on `master_audit_logs` with user and row count, never the content (like `SECURITY.md` §5.4).
-- Commit and undo are recorded on the import log with maker, approver, times, file hashes and row counts.
+- Commit and undo are recorded on the run with maker, approver, times, file hashes and row counts, and on `master_audit_logs` with counts only.
 
 ## 6. SSOT updates (phase 1, before code, `AGENTS.md` rule 1)
 
-- `DOMAIN.md` §2.2: `bezetting`, `import_log_id`, `tmt_awal_diperkirakan`, `jenis_perubahan_terdeteksi`, `teks_sumber`; fix `status_jabatan` vs `status_penugasan`. New subsection with §5.1–§5.6 rules: existing data wins, closed rows only, no structure reconstruction, separations only through the separation feature.
+- `DOMAIN.md` §2.2: `bezetting`, `backfill_run_id`, `tmt_awal_diperkirakan`, `jenis_perubahan_terdeteksi`, `teks_sumber`; fix `status_jabatan` vs `status_penugasan`. New subsection with §5.1–§5.6 rules: existing data wins, closed rows only, no structure reconstruction, separations only through the separation feature.
 - `SECURITY.md` §4–5: staged columns, retention, mandatory second approver, logged verification downloads.
 - `DESIGN.md`: the "Bezetting Historis" badge and the estimated-date mark in the status and category tables (§5).
 - `ENGINEERING.md`: the pilot procedure and environments (§8).
@@ -198,3 +198,7 @@ Follows the five SDLC stages of `ENGINEERING.md` §1.
 | 10 | Idempotence key collided for concurrent duties | Key includes unit, position, status (§5.5) |
 | 11 | `DESIGN.md` and the SDLC stages not addressed; no environments | §5.7, §8 |
 | 12 | Stale scope (2022, 58 files) | 2025-01 to 2026-10, 22 files |
+| 13 | (found in phase 2) Reusing `employee_import_logs` would put runs in the Employee Import batch list, whose undo restores employees and would leave backfilled rows in place | Own table `bezetting_backfill_runs`; link renamed `backfill_run_id` (§5.1) |
+| 14 | (found in phase 2) Keeping uploaded files for the review period keeps every column, including religion and education | Files deleted right after reading; only the minimized, encrypted data stays (§5.9) |
+| 15 | (found in phase 2) "Blocked while anything is undecided" made person-level problems block everyone | Three exception classes (§5.7) |
+| 16 | (found in phase 2) End date of a position that is no longer seen was undefined | End of the last month it was seen (`DOMAIN.md` §5.5 rule 4) |

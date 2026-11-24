@@ -2,8 +2,8 @@
 
 namespace Tests\Feature;
 
+use App\Models\BezettingBackfillRun;
 use App\Models\Employee;
-use App\Models\EmployeeImportLog;
 use App\Models\JobHistory;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -64,16 +64,19 @@ class JobHistoryTest extends TestCase
         $this->assertTrue(JobHistory::applied()->whereKey($row->id)->exists());
     }
 
-    public function test_provenance_fields_are_stored_cast_and_linked_to_the_import_log(): void
+    public function test_provenance_fields_are_stored_cast_and_linked_to_the_backfill_run(): void
     {
-        $log = EmployeeImportLog::create(['file_name' => 'Bez Januari 2025.xls']);
+        $run = BezettingBackfillRun::create([
+            'status' => BezettingBackfillRun::STATUS_COMPLETED, 'files' => [], 'period_from' => '2025-01', 'period_to' => '2025-01',
+        ]);
         $row = $this->bezettingRow(Employee::factory()->create(), [
-            'import_log_id' => $log->id,
+            'backfill_run_id' => $run->id,
             'tmt_awal_diperkirakan' => 1,
         ])->fresh();
 
         $this->assertTrue($row->tmt_awal_diperkirakan);
-        $this->assertTrue($row->importLog->is($log));
+        $this->assertTrue($row->backfillRun->is($run));
+        $this->assertTrue($run->jobHistories()->whereKey($row->id)->exists());
         $this->assertSame('KEBUN INTI GUNUNG MELIAU (K.SAWIT) | Asisten Afdeling I', $row->teks_sumber);
     }
 
@@ -84,7 +87,7 @@ class JobHistoryTest extends TestCase
 
         $this->assertSame(JobHistory::SUMBER_DATA_AWAL, $initial->sumber);
         $this->assertFalse($initial->tmt_awal_diperkirakan);
-        $this->assertNull($initial->import_log_id);
+        $this->assertNull($initial->backfill_run_id);
         $this->assertNull($initial->jenis_perubahan_terdeteksi_label);
     }
 
