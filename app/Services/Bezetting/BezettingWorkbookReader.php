@@ -210,7 +210,15 @@ class BezettingWorkbookReader
             }
 
             if ($nik === '') {
-                $heading = $nama;
+                // A section heading has no position and no golongan. A row that has either is a person whose NIK is
+                // missing: it is reported, and never becomes a unit name (a person's name must not end up there).
+                $jabatanCell = trim((string) $sheet->getCell([$columns['jabatan'], $row])->getValue());
+                $golonganCell = trim((string) $sheet->getCell([$columns['golongan'], $row])->getValue());
+                if ($jabatanCell === '' && $golonganCell === '') {
+                    $heading = $nama;
+                } else {
+                    $issues[] = ['row' => $row, 'code' => 'nik_kosong'];
+                }
 
                 continue;
             }

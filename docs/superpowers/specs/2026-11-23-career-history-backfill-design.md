@@ -202,3 +202,8 @@ Follows the five SDLC stages of `ENGINEERING.md` §1.
 | 14 | (found in phase 2) Keeping uploaded files for the review period keeps every column, including religion and education | Files deleted right after reading; only the minimized, encrypted data stays (§5.9) |
 | 15 | (found in phase 2) "Blocked while anything is undecided" made person-level problems block everyone | Three exception classes (§5.7) |
 | 16 | (found in phase 2) End date of a position that is no longer seen was undefined | End of the last month it was seen (`DOMAIN.md` §5.5 rule 4) |
+| 17 | (found in phase 2, real files) A person row with an empty NIK was read as a section heading, so a person's name became a unit name | A row without NIK is a heading only when it has no position and no golongan; otherwise it is reported (`nik_kosong`) |
+
+## 13. Review workload measured on the real files (phase 2, counts only)
+
+Against the seeded master structure (47 units, 274 positions): 87 distinct unit names, of which 36 match the master and 51 need an HR decision; 305 distinct position names, of which 115 match and 190 need a decision; one status phrase ("Penugasan sebagai", 74 rows); 225 concurrent-duty cells. Phase 3 should therefore offer grouped suggestions (reusing `PositionNameMatcher`) and an explicit bulk "keep the remaining position names as written" decision, so the 190 position names are one reviewed action rather than 190 clicks.

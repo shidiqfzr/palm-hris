@@ -137,6 +137,23 @@ class BezettingWorkbookReaderTest extends TestCase
         $this->assertNull($result['rows'][1]['tanggal_dalam_jabatan']);
     }
 
+    public function test_a_person_without_a_nik_is_reported_and_never_becomes_a_unit_heading(): void
+    {
+        $rows = [
+            ['PER MARET 2025'],
+            ['NO', 'N A M A', 'NIK', 'JABATAN', 'GOL 2025', 'TGL. DALAM JABATAN'],
+            ['', 'BAGIAN TANAMAN'],
+            [1, 'Karyawan Tanpa NIK', '', 'Asisten Tanaman', 'IIIA/01', ''],
+            [2, 'Karyawan Contoh Tujuh', 99000007, 'Asisten Pemupukan', 'IIIA/02', ''],
+        ];
+
+        $result = $this->reader()->read($this->workbook($rows), 'Bez Maret 2025.xls');
+
+        $this->assertSame([['row' => 4, 'code' => 'nik_kosong']], $result['issues']);
+        $this->assertCount(1, $result['rows']);
+        $this->assertSame('BAGIAN TANAMAN', $result['rows'][0]['unit']);
+    }
+
     public function test_period_falls_back_to_the_file_name_with_a_warning(): void
     {
         $rows = $this->columnLayout();

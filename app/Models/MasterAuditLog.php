@@ -83,6 +83,13 @@ class MasterAuditLog extends Model
         'data_table.bulk' => 'Aksi massal pada tabel data',
         'data_table.export' => 'Tabel data diunduh',
         'structure_as_of.export' => 'Versi struktur diunduh',
+        'bezetting.staged' => 'Berkas Bezetting dibaca untuk rekonstruksi riwayat',
+        'bezetting.mapping_decided' => 'Keputusan nama Bezetting disimpan',
+        'bezetting.submitted' => 'Rekonstruksi riwayat Bezetting diajukan',
+        'bezetting.committed' => 'Rekonstruksi riwayat Bezetting disetujui dan disimpan',
+        'bezetting.rejected' => 'Rekonstruksi riwayat Bezetting dikembalikan',
+        'bezetting.rolled_back' => 'Rekonstruksi riwayat Bezetting dibatalkan',
+        'bezetting.expired' => 'Rekonstruksi riwayat Bezetting kedaluwarsa',
     ];
 
     public const ENTITY_LABELS = [
@@ -100,6 +107,8 @@ class MasterAuditLog extends Model
         'seat_access' => 'Akses Data Formasi',
         'data_table' => 'Tabel Data',
         'structure_as_of' => 'Versi Struktur',
+        'bezetting_run' => 'Rekonstruksi Riwayat Bezetting',
+        'bezetting_mapping' => 'Pemetaan Nama Bezetting',
     ];
 
     /** Istilah bisnis untuk kolom yang tercatat pada nilai lama/baru. */
