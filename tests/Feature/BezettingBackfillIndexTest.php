@@ -53,6 +53,36 @@ class BezettingBackfillIndexTest extends TestCase
         $this->assertSame($admin->id, $run->maker_id);
     }
 
+    public function test_an_old_format_xls_workbook_is_accepted(): void
+    {
+        // Real Bezetting files are binary .xls (OLE container). Livewire detects their type from the first bytes as
+        // application/x-ole-storage, which the plain "mimes:xls" rule rejected.
+        $admin = User::factory()->create(['role' => 'admin']);
+        $this->bezettingScenario();
+
+        // In tests Livewire uses the fake's declared type instead of reading the file, so declare what it detects in production.
+        $upload = $this->bezettingUpload(1, [['99000001', 'Asisten Kepala', 'Kebun Parindu', '01-04-2023']], 'xls')->mimeType('application/x-ole-storage');
+
+        Livewire::actingAs($admin)->test(BezettingBackfillIndex::class)
+            ->set('files', [$upload])
+            ->call('stage')
+            ->assertHasNoErrors();
+
+        $this->assertSame(['2025-01'], array_column(BezettingBackfillRun::sole()->files, 'period'));
+    }
+
+    public function test_a_word_document_renamed_to_xls_is_refused_by_the_content_check(): void
+    {
+        $admin = User::factory()->create(['role' => 'admin']);
+
+        Livewire::actingAs($admin)->test(BezettingBackfillIndex::class)
+            ->set('files', [UploadedFile::fake()->createWithContent('Bez Januari 2025.xls', 'bukan lembar kerja')])
+            ->call('stage')
+            ->assertHasErrors('files');
+
+        $this->assertSame(0, BezettingBackfillRun::count());
+    }
+
     public function test_a_file_that_is_not_excel_or_a_duplicate_period_is_refused_with_a_safe_message(): void
     {
         $admin = User::factory()->create(['role' => 'admin']);

@@ -29,6 +29,15 @@ class BezettingBackfillIndex extends Component
 
     public int $perPage = 10;
 
+    /** Content types an Excel workbook reports: .xls (also as its OLE container) and .xlsx (also as its zip container). */
+    private const WORKBOOK_TYPES = [
+        'application/vnd.ms-excel',
+        'application/x-ole-storage',
+        'application/CDFV2',
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        'application/zip',
+    ];
+
     public function updatedPerPage(): void
     {
         $this->resetPage();
@@ -45,13 +54,17 @@ class BezettingBackfillIndex extends Component
         $max = (int) config('hris.bezetting.max_files', 24);
         $kb = (int) config('hris.bezetting.max_file_kb', 10240);
 
+        // Livewire detects the type from the first 64 KB of the temporary file. Binary .xls workbooks (the format of the
+        // real monthly files) then report the OLE container type, so "mimes:xls" refused genuine files. Three layers
+        // instead: extension, accepted content types, and the reader, which refuses anything that is not a workbook.
         $this->validate(
-            ['files' => "required|array|min:1|max:{$max}", 'files.*' => "file|mimes:xls,xlsx|max:{$kb}"],
+            ['files' => "required|array|min:1|max:{$max}", 'files.*' => 'file|extensions:xls,xlsx|mimetypes:'.implode(',', self::WORKBOOK_TYPES)."|max:{$kb}"],
             [
                 'files.required' => 'Pilih minimal satu berkas Bezetting.',
                 'files.min' => 'Pilih minimal satu berkas Bezetting.',
                 'files.max' => "Paling banyak {$max} berkas dalam satu proses.",
-                'files.*.mimes' => 'Setiap berkas harus berformat Excel (.xls atau .xlsx).',
+                'files.*.extensions' => 'Setiap berkas harus berformat Excel (.xls atau .xlsx).',
+                'files.*.mimetypes' => 'Setiap berkas harus berformat Excel (.xls atau .xlsx).',
                 'files.*.max' => 'Setiap berkas paling besar '.intdiv($kb, 1024).' MB.',
             ],
         );

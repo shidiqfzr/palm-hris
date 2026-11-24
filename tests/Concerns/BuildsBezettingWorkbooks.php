@@ -10,6 +10,7 @@ use App\Models\User;
 use App\Services\Bezetting\BezettingBackfillService;
 use Illuminate\Http\UploadedFile;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
+use PhpOffice\PhpSpreadsheet\Writer\Xls;
 use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 
 /**
@@ -20,7 +21,8 @@ trait BuildsBezettingWorkbooks
     private const BEZETTING_MONTHS = [1 => 'Januari', 2 => 'Februari', 3 => 'Maret'];
 
     /** @param list<array{0: string, 1: string, 2: string, 3: string}> $people nik, jabatan, unit, tanggal dalam jabatan */
-    protected function bezettingWorkbook(int $month, array $people): string
+    /** $format 'xlsx' or 'xls' (binary Excel 97–2003, the format of the real monthly files). */
+    protected function bezettingWorkbook(int $month, array $people, string $format = 'xlsx'): string
     {
         $rows = [['DAFTAR PERSONIL KARYAWAN PIMPINAN'], ['PER '.strtoupper(self::BEZETTING_MONTHS[$month]).' 2025'], [],
             ['NO', 'N A M A', 'NIK', 'JABATAN', 'Unit Kerja', 'GOL 2025', 'TGL. DALAM JABATAN', 'TMT DI BAGIAN/ UNIT KERJA']];
@@ -29,16 +31,16 @@ trait BuildsBezettingWorkbooks
         }
         $book = new Spreadsheet;
         $book->getActiveSheet()->fromArray($rows, null, 'A1', true);
-        $path = tempnam(sys_get_temp_dir(), 'bez').'.xlsx';
-        (new Xlsx($book))->save($path);
+        $path = tempnam(sys_get_temp_dir(), 'bez').'.'.$format;
+        ($format === 'xls' ? new Xls($book) : new Xlsx($book))->save($path);
 
         return $path;
     }
 
-    protected function bezettingUpload(int $month, array $people): UploadedFile
+    protected function bezettingUpload(int $month, array $people, string $format = 'xlsx'): UploadedFile
     {
-        $path = $this->bezettingWorkbook($month, $people);
-        $upload = UploadedFile::fake()->createWithContent('Bez '.self::BEZETTING_MONTHS[$month].' 2025.xlsx', (string) file_get_contents($path));
+        $path = $this->bezettingWorkbook($month, $people, $format);
+        $upload = UploadedFile::fake()->createWithContent('Bez '.self::BEZETTING_MONTHS[$month].' 2025.'.$format, (string) file_get_contents($path));
         @unlink($path);
 
         return $upload;
