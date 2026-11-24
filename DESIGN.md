@@ -294,6 +294,9 @@ Satu-satunya acuan warna status. Status baru **wajib** ditambahkan di sini lebih
 | Struktural, talenta, informasi | `info` | Kategori 9-Box, riwayat mutasi, catatan informasi |
 | Metadata deskriptif (bidang, jam, kriteria nilai) | `surface` netral | Ubin detail pelatihan, kartu nilai per kriteria |
 | Unit, entitas, lokasi | `teal` | KPI jumlah unit |
+| Sumber catatan riwayat bukan SK | `info` | Lencana ikon `fa-database` + label sumber (Data Awal, Pembaruan Data, Impor Excel, Bezetting Historis) pada Riwayat & Audit Log dan Riwayat Karir |
+
+Tanggal mulai riwayat yang ditandai perkiraan (rekonstruksi Bezetting) ditulis dengan teks "(perkiraan)" sesudah tanggalnya, tanpa warna tambahan, dan teks asli dari berkas dapat dibuka sebagai keterangan.
 
 Tugas rangkap memakai satu perlakuan `info` agar tidak bertabrakan dengan RM-3; jenisnya (Plt/Pj/Diperbantukan) dibedakan oleh label teks. Bidang (KEU/TAN/TEK/UMU) tidak diberi warna per bidang (Tier 4). Gradien dekoratif tidak dipakai. Dijaga penjaga §16.1.
 

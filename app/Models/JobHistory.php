@@ -38,15 +38,36 @@ class JobHistory extends Model
 
     public const SUMBER_IMPOR = 'impor';
 
+    /** Riwayat yang direkonstruksi dari Bezetting bulanan (DOMAIN.md §5.5): catatan, bukan SK; selalu tertutup. */
+    public const SUMBER_BEZETTING = 'bezetting';
+
     public const SUMBER_LABELS = [
         self::SUMBER_MUTASI => 'Mutasi Resmi',
         self::SUMBER_DATA_AWAL => 'Data Awal',
         self::SUMBER_PEMBARUAN_DATA => 'Pembaruan Data',
         self::SUMBER_IMPOR => 'Impor Excel',
+        self::SUMBER_BEZETTING => 'Bezetting Historis',
+    ];
+
+    /**
+     * Deskripsi perubahan hasil perbandingan Bezetting (`jenis_perubahan_terdeteksi`). Bukan jenis mutasi: baris
+     * `bezetting` tidak pernah memiliki `jenis_mutasi` (DOMAIN.md §2.2).
+     */
+    public const JENIS_PERUBAHAN_LABELS = [
+        'PENEMPATAN_AWAL' => 'Penempatan Awal',
+        'PERUBAHAN_JABATAN' => 'Perubahan Jabatan',
+        'PERUBAHAN_UNIT' => 'Perubahan Unit Kerja',
+        'PERUBAHAN_STATUS' => 'Perubahan Status Penugasan',
+        'PERUBAHAN_GOLONGAN' => 'Perubahan Golongan',
+        'TUGAS_RANGKAP' => 'Tugas Rangkap',
     ];
 
     protected $fillable = [
         'sumber',
+        'import_log_id',
+        'tmt_awal_diperkirakan',
+        'jenis_perubahan_terdeteksi',
+        'teks_sumber',
         'batch_id',
         'chain_order',
         'is_applied',
@@ -77,6 +98,7 @@ class JobHistory extends Model
     protected $casts = [
         'job_grade' => 'integer',
         'is_applied' => 'boolean',
+        'tmt_awal_diperkirakan' => 'boolean',
         'tmt_awal' => 'date',
         'tmt_akhir' => 'date',
         'tmt_akhir_estimasi' => 'date',
@@ -189,6 +211,18 @@ class JobHistory extends Model
     public function employee()
     {
         return $this->belongsTo(Employee::class, 'employee_nik', 'nik');
+    }
+
+    /** Log impor asal baris `bezetting` (pengaju, penyetuju, SHA-256 berkas); null untuk sumber lain. */
+    public function importLog()
+    {
+        return $this->belongsTo(EmployeeImportLog::class, 'import_log_id');
+    }
+
+    /** Label bisnis perubahan hasil deteksi Bezetting, atau null bila tidak ada. */
+    public function getJenisPerubahanTerdeteksiLabelAttribute(): ?string
+    {
+        return self::JENIS_PERUBAHAN_LABELS[$this->jenis_perubahan_terdeteksi] ?? null;
     }
 
     /**

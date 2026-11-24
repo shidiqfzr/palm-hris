@@ -79,6 +79,25 @@ class MutasiHistoryTest extends TestCase
         $this->assertSame(2, JobHistory::where('sumber', JobHistory::SUMBER_DATA_AWAL)->count());
     }
 
+    public function test_bezetting_history_is_hidden_by_default_and_offered_in_the_source_filter(): void
+    {
+        $employee = Employee::factory()->create(['nama' => 'Ani Bezetting', 'jabatan' => 'Manajer Kebun', 'unit_kerja' => 'Kebun Danau Salak']);
+        JobHistory::create([
+            'employee_nik' => $employee->nik, 'jabatan' => 'Asisten Afdeling I', 'unit_kerja' => 'Kebun Danau Salak',
+            'tmt_awal' => '2025-01-01', 'tmt_akhir' => '2025-06-30', 'status_penugasan' => 'Definitif', 'is_applied' => true,
+            'sumber' => JobHistory::SUMBER_BEZETTING,
+        ]);
+
+        Livewire::actingAs($this->adminUser)->test(MutasiHistory::class)
+            ->assertDontSee('Ani Bezetting')
+            ->set('sumberFilter', JobHistory::SUMBER_BEZETTING)
+            ->assertSet('sumberFilter', JobHistory::SUMBER_BEZETTING)
+            ->assertSee('Ani Bezetting')
+            ->assertSee('Bezetting Historis');
+
+        $this->assertSame(1, (new MutasiHistoryExport(['sumber' => JobHistory::SUMBER_BEZETTING]))->query()->count());
+    }
+
     public function test_export_follows_the_source_filter(): void
     {
         Employee::factory()->create(['nama' => 'Siti Data Awal', 'jabatan' => 'Asisten', 'unit_kerja' => 'Kebun Danau Salak']);
