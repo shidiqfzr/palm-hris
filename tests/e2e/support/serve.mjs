@@ -28,7 +28,7 @@ if (migrate.status !== 0) {
     process.exit(migrate.status ?? 1);
 }
 
-for (const script of ['seed-import-batch.php', 'seed-import-states.php', 'seed-structure-versions.php', 'make-import-fixtures.php']) {
+for (const script of ['seed-import-batch.php', 'seed-import-states.php', 'seed-structure-versions.php', 'make-import-fixtures.php', 'seed-bezetting-backfill.php']) {
     const seed = spawnSync('php', ['artisan', 'tinker', `--execute=include 'tests/e2e/support/${script}';`], { cwd: root, env, stdio: 'inherit' });
     if (seed.status !== 0) {
         process.exit(seed.status ?? 1);

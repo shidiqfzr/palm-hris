@@ -61,6 +61,22 @@ class JobVacancyServiceTest extends TestCase
         return $this->service->getFormasiVacancies()->firstWhere('jabatan', $jabatan);
     }
 
+    public function test_a_backfilled_bezetting_departure_sets_vacant_since_but_is_never_a_holder(): void
+    {
+        $position = $this->seat('Asisten Bezetting Uji', 1);
+        $former = Employee::factory()->create(['unit_kerja' => 'Unit Lain', 'jabatan' => 'Jabatan Lain']);
+        JobHistory::create([
+            'employee_nik' => $former->nik, 'jabatan' => $position->nama, 'unit_kerja' => $this->unit->nama, 'status_penugasan' => 'Definitif',
+            'tmt_awal' => now()->subYears(2)->toDateString(), 'tmt_akhir' => now()->subDays(45)->toDateString(),
+            'is_applied' => true, 'sumber' => JobHistory::SUMBER_BEZETTING,
+        ]);
+
+        $row = $this->row('Asisten Bezetting Uji');
+
+        $this->assertSame(45, $row->days_vacant, 'closed backfilled rows date the vacancy (DOMAIN.md §5.5 rule 4)');
+        $this->assertSame([], $this->service->temporaryHolderCounts()->all(), 'a closed backfilled row is never counted as holding the seat');
+    }
+
     public function test_classify_seat_covers_every_state(): void
     {
         $this->assertSame('empty', JobVacancyService::classifySeat(2, 0, 0));

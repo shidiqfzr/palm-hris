@@ -11,6 +11,9 @@
             ['label' => 'Impor Data Spreadsheet', 'url' => route('admin.employees.import.page')],
             'Riwayat & Persetujuan',
         ]">
+        @can(\App\Support\HrisPermission::KARYAWAN_IMPORT)
+            <x-admin.button href="{{ route('admin.employees.bezetting.index') }}" variant="secondary" icon="fas fa-timeline">Rekonstruksi Riwayat Karir</x-admin.button>
+        @endcan
         <x-admin.button href="{{ route('admin.employees.import.page') }}" variant="primary" icon="fas fa-file-import">Impor Data Karyawan</x-admin.button>
     </x-admin.module-header>
 

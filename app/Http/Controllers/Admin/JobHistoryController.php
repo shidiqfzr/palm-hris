@@ -113,6 +113,20 @@ class JobHistoryController extends Controller
             'catatan' => 'nullable|string|max:2000',
         ]);
 
+        // Riwayat hasil rekonstruksi Bezetting tetap catatan tertutup tanpa SK (DOMAIN.md §5.5 butir 2 dan 4): baris
+        // terbuka akan dihitung sebagai pemegang formasi, dan SK hanya berasal dari modul Mutasi.
+        if ($job_history->sumber === JobHistory::SUMBER_BEZETTING) {
+            $request->validate(
+                ['tmt_akhir' => 'required', 'nomor_sk' => 'prohibited', 'tanggal_sk' => 'prohibited', 'jenis_mutasi' => 'prohibited'],
+                [
+                    'tmt_akhir.required' => 'Riwayat dari Bezetting wajib memiliki tanggal berakhir.',
+                    'nomor_sk.prohibited' => 'Riwayat dari Bezetting bukan SK mutasi, sehingga nomor SK tidak dapat diisi. Catat SK lewat modul Mutasi.',
+                    'tanggal_sk.prohibited' => 'Riwayat dari Bezetting bukan SK mutasi, sehingga tanggal SK tidak dapat diisi.',
+                    'jenis_mutasi.prohibited' => 'Riwayat dari Bezetting tidak memiliki jenis mutasi resmi.',
+                ],
+            );
+        }
+
         DB::transaction(function () use ($data, $employee, $job_history, $service) {
             $job_history->update($data);
 

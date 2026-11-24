@@ -90,6 +90,7 @@ class MasterAuditLog extends Model
         'bezetting.rejected' => 'Rekonstruksi riwayat Bezetting dikembalikan',
         'bezetting.rolled_back' => 'Rekonstruksi riwayat Bezetting dibatalkan',
         'bezetting.expired' => 'Rekonstruksi riwayat Bezetting kedaluwarsa',
+        'bezetting_access.export' => 'Daftar verifikasi Bezetting diunduh',
     ];
 
     public const ENTITY_LABELS = [

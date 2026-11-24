@@ -53,13 +53,16 @@
                                 <x-admin.table.select-cell :key="$key" :label="$history->jabatan" />
                             @endif
                             <td class="px-4 py-3 whitespace-nowrap text-surface-900 font-medium">
-                                {{ $history->tmt_awal?->format('d M Y') ?? '-' }} &ndash;
+                                {{ $history->tmt_awal?->format('d M Y') ?? '-' }}@if ($history->tmt_awal_diperkirakan) <span class="text-[11px] font-normal text-surface-600">(perkiraan)</span>@endif &ndash;
                                 <span class="{{ is_null($history->tmt_akhir) ? 'text-primary-600 font-semibold' : 'text-surface-600' }}">
                                     {{ $history->tmt_akhir?->format('d M Y') ?? 'Sekarang' }}
                                 </span>
                             </td>
                             <td class="px-4 py-3 text-surface-900 font-semibold">
                                 {{ $history->jabatan }}
+                                @if ($history->sumber === \App\Models\JobHistory::SUMBER_BEZETTING && $history->teks_sumber)
+                                    <span class="mt-0.5 block text-[11px] font-normal text-surface-500">Teks berkas: {{ $history->teks_sumber }}</span>
+                                @endif
                             </td>
                             <td class="px-4 py-3 text-surface-700">
                                 {{ $history->unit_kerja }}
@@ -72,6 +75,14 @@
                                     <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-info-50 text-info-700 border border-info-200">
                                         {{ $history->jenis_mutasi_label }}
                                     </span>
+                                @elseif ($history->isRecordOnly())
+                                    <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-info-50 text-info-800 border border-info-200"
+                                        title="Catatan data kepegawaian, bukan SK mutasi resmi">
+                                        <i class="fas fa-database text-[10px]" aria-hidden="true"></i> {{ $history->sumber_label }}
+                                    </span>
+                                    @if ($history->jenis_perubahan_terdeteksi_label)
+                                        <span class="mt-1 block text-[11px] text-surface-600">{{ $history->jenis_perubahan_terdeteksi_label }}</span>
+                                    @endif
                                 @else
                                     <span class="text-surface-500">&mdash;</span>
                                 @endif

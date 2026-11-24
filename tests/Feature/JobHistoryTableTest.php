@@ -67,6 +67,21 @@ class JobHistoryTableTest extends TestCase
         return Livewire::test(JobHistoryTable::class, ['employeeId' => $this->employee->nik]);
     }
 
+    public function test_a_bezetting_row_shows_its_source_badge_estimated_start_and_file_text(): void
+    {
+        $this->makeHistory($this->employee, [
+            'jabatan' => 'Asisten Kepala Bezetting', 'tmt_awal' => '2019-02-01', 'tmt_akhir' => '2019-12-31',
+            'jenis_mutasi' => null, 'nomor_sk' => null, 'sumber' => JobHistory::SUMBER_BEZETTING, 'tmt_awal_diperkirakan' => true,
+            'jenis_perubahan_terdeteksi' => 'PERUBAHAN_JABATAN', 'teks_sumber' => 'KEBUN INTI PARINDU (K.SAWIT) | Asisten Kepala',
+        ]);
+
+        $this->table()->set('perPage', 25)
+            ->assertSee('Bezetting Historis')
+            ->assertSee('(perkiraan)')
+            ->assertSee('Perubahan Jabatan')
+            ->assertSee('Teks berkas: KEBUN INTI PARINDU (K.SAWIT) | Asisten Kepala');
+    }
+
     public function test_header_shows_the_row_count_without_title_or_export(): void
     {
         $total = $this->table()->instance()->rows->total();

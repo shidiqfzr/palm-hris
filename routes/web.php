@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Admin\BezettingVerificationDownloadController;
 use App\Http\Controllers\Admin\EmployeeController as AdminEmployeeController;
 use App\Http\Controllers\Admin\EmployeeImportBatchController;
 use App\Http\Controllers\Admin\EvaluationController as AdminEvaluationController;
@@ -17,6 +18,7 @@ use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\DataController;
 use App\Http\Controllers\User\EmployeeController as UserEmployeeController;
 use App\Http\Controllers\User\TrainingController as UserTrainingController;
+use App\Models\BezettingBackfillRun;
 use App\Models\Employee;
 use App\Models\StructureDecree;
 use App\Models\Unit;
@@ -73,6 +75,10 @@ Route::prefix('admin')
             Route::post('/import/batches/{log}/approve', [EmployeeImportBatchController::class, 'approve'])->name('import.batches.approve')->middleware('throttle:10,1');
             Route::post('/import/batches/{log}/reject', [EmployeeImportBatchController::class, 'reject'])->name('import.batches.reject')->middleware('throttle:10,1');
             Route::post('/import/batches/{log}/rollback', [EmployeeImportBatchController::class, 'rollback'])->name('import.batches.rollback')->middleware('throttle:10,1');
+            // Rekonstruksi Riwayat Karir dari Bezetting bulanan (izin karyawan.import diperiksa komponen dan controller)
+            Route::view('/riwayat-bezetting', 'admin.employees.bezetting.index')->name('bezetting.index');
+            Route::get('/riwayat-bezetting/{run}', fn (BezettingBackfillRun $run) => view('admin.employees.bezetting.show', ['run' => $run]))->name('bezetting.show')->whereNumber('run');
+            Route::get('/riwayat-bezetting/{run}/verifikasi', BezettingVerificationDownloadController::class)->name('bezetting.verification')->whereNumber('run')->middleware('throttle:20,1');
             Route::get('/check-nik', [AdminEmployeeController::class, 'checkNik'])->name('checkNik')->middleware('throttle:60,1');
             Route::get('/export', [AdminEmployeeController::class, 'export'])->name('export');
             Route::get('/download-template', [AdminEmployeeController::class, 'downloadTemplate'])->name('downloadTemplate');

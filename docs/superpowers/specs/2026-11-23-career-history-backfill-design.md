@@ -1,6 +1,6 @@
 # Career History Backfill from Monthly Bezetting Files — Design
 
-Date: 2026-11-23 · Revised: 2026-11-24 (v2, gap review against the SSOT files and the code, see §12) · Status: **approved by the user 2026-11-24** · Phase 1 (SSOT, migrations, models) in progress on `feat/bezetting-career-backfill` · Size: project (three phases)
+Date: 2026-11-23 · Revised: 2026-11-24 (v2, gap review against the SSOT files and the code, see §12) · Status: **approved by the user 2026-11-24** · Phases 1–3 built on `feat/bezetting-career-backfill`; pilot on a restored production copy pending · Size: project (three phases)
 
 ## 1. Intent and why
 
@@ -161,6 +161,7 @@ Follows the five SDLC stages of `ENGINEERING.md` §1.
 - What "Penugasan sebagai …" means as a status, confirmed by HR during review.
 - Named HR verifier and approver (roles are set in §5.9 and §5.1 step 7).
 - Reviewer capacity; grouped bulk decisions are the mitigation.
+- **Pre-existing, outside this project (found in phase 3):** the manual edit of a history row (`JobHistoryController::update`) lets an admin type an SK number or mutation type on any record-only row (`data_awal`, `pembaruan_data`, `impor`), although `DOMAIN.md` §2.2 says those rows must not carry SK data. Phase 3 closes this for `bezetting` rows only; widening it to every record-only source is a separate decision for the user.
 
 ## 10. Profiling findings (read-only, 22 files, 2026-11-24)
 
@@ -203,6 +204,8 @@ Follows the five SDLC stages of `ENGINEERING.md` §1.
 | 15 | (found in phase 2) "Blocked while anything is undecided" made person-level problems block everyone | Three exception classes (§5.7) |
 | 16 | (found in phase 2) End date of a position that is no longer seen was undefined | End of the last month it was seen (`DOMAIN.md` §5.5 rule 4) |
 | 17 | (found in phase 2, real files) A person row with an empty NIK was read as a section heading, so a person's name became a unit name | A row without NIK is a heading only when it has no position and no golongan; otherwise it is reported (`nik_kosong`) |
+| 18 | (found in phase 3) The manual edit form could reopen a `bezetting` row (empty end date, counted as a seat holder and synced to the employee) or give it an SK number or mutation type | `JobHistoryController::update` requires an end date and refuses SK fields and mutation type on `bezetting` rows |
+| 19 | (found in phase 3) The shared upload component accepted one file only | Backward-compatible `multiple` option, no hand-written file input |
 
 ## 13. Review workload measured on the real files (phase 2, counts only)
 
