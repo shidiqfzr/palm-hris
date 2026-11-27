@@ -146,8 +146,9 @@
     <!-- Combobox Input Trigger -->
     <div class="relative">
         <div class="relative flex items-center">
-            <span class="absolute left-3 text-primary-600 pointer-events-none text-xs">
-                <i class="fas fa-building-circle-check" aria-hidden="true"></i>
+            {{-- Same look as x-admin.searchable-select size="form" and x-admin.form.input (DESIGN.md §7.1): one picker style per form. --}}
+            <span class="absolute left-3.5 pointer-events-none text-[11px] transition-colors" :class="selectedUnit ? 'text-primary-600' : 'text-surface-400'">
+                <i class="fas fa-building" aria-hidden="true"></i>
             </span>
 
             <input type="text"
@@ -162,20 +163,21 @@
                    @if($required) aria-required="true" @endif
                    placeholder="Cari atau pilih unit kerja..."
                    autocomplete="off"
-                   class="w-full pl-8 pr-20 py-2.5 bg-surface-50/70 border border-surface-200 rounded-xl text-xs sm:text-sm font-medium text-surface-800 placeholder-surface-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-500 transition truncate">
-            
-            <div class="absolute right-2 flex items-center gap-1 bg-surface-100/90 backdrop-blur-xs px-1.5 py-1 rounded-lg border border-surface-200/60">
-                <button type="button" 
-                        x-show="search.length > 0" 
+                   class="w-full h-[42px] pl-8 pr-16 bg-surface-50/70 border border-surface-200 rounded-lg text-xs sm:text-sm font-medium text-surface-800 placeholder-surface-400 hover:border-primary-500 focus:bg-white focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/30 focus-visible:border-primary-500 transition truncate">
+
+            <div class="absolute right-3.5 flex items-center gap-1.5 h-5">
+                <button type="button"
+                        x-show="search.length > 0"
                         @click.stop="clear()"
-                        class="text-surface-500 hover:text-danger p-0.5 rounded transition text-xs cursor-pointer"
+                        aria-label="Hapus pilihan"
+                        class="w-5 h-5 inline-flex items-center justify-center leading-none text-surface-500 hover:text-danger rounded transition cursor-pointer"
                         title="Hapus pilihan">
-                    <i class="fas fa-times" aria-hidden="true"></i>
+                    <i class="fas fa-times text-[10px]" aria-hidden="true"></i>
                 </button>
-                <button aria-label="Tampilkan daftar unit" :aria-expanded="isOpen.toString()" type="button" 
+                <button aria-label="Tampilkan daftar unit" :aria-expanded="isOpen.toString()" type="button"
                         @click.stop="isOpen = !isOpen"
-                        class="text-surface-500 hover:text-surface-700 p-0.5 rounded transition text-xs cursor-pointer">
-                    <i class="fas fa-chevron-down text-[10px] transition-transform duration-200" :class="{ 'rotate-180': isOpen }" aria-hidden="true"></i>
+                        class="w-5 h-5 inline-flex items-center justify-center leading-none text-surface-400 hover:text-surface-700 rounded transition cursor-pointer">
+                    <i class="fas fa-chevron-down text-[10px] transition-transform duration-200" :class="{ 'rotate-180 text-primary-600': isOpen }" aria-hidden="true"></i>
                 </button>
             </div>
         </div>

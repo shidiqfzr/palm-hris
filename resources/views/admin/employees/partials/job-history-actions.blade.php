@@ -1,14 +1,15 @@
-<div class="inline-flex items-center gap-2">
-  <a href="{{ route('admin.employees.job-history.edit', ['employee' => $row->employee_nik, 'job_history' => $row->id]) }}"
-     class="w-8 h-8 flex items-center justify-center rounded-md bg-warning-700 text-white hover:bg-warning-700 transition"
-     title="Edit">
-    <i class="fas fa-edit" aria-hidden="true"></i>
-  </a>
-
-  <button wire:click="deleteRow({{ $row->id }})" wire:loading.attr="disabled" wire:target="deleteRow"
-          onclick="confirm('Hapus riwayat jabatan ini?') || event.stopImmediatePropagation()"
-          class="w-8 h-8 flex items-center justify-center rounded-md bg-danger text-white hover:bg-danger transition"
-          title="Hapus">
-    <i class="fas fa-trash" aria-hidden="true"></i>
-  </button>
-</div>
+{{--
+    Aksi baris Riwayat Karir (DESIGN.md §7.5 dan §8.7 butir 3): satu menu kebab, Ubah lalu Hapus (danger, dipisah garis).
+    Hapus membuka x-admin.confirm-delete-modal (beralasan) yang ada sekali pada tabel; riwayat yang masih berjalan tidak
+    dapat dihapus karena hanya berubah melalui Mutasi (aturan yang sama ditegakkan JobHistoryController::destroy).
+--}}
+@php
+    $label = $row->jabatan.' ('.($row->tmt_awal?->format('d M Y') ?? '-').')';
+@endphp
+<x-admin.row-menu :label="'riwayat '.$label">
+    <x-admin.master.menu-item icon="fas fa-pen" :href="route('admin.employees.job-history.edit', ['employee' => $row->employee_nik, 'job_history' => $row->id])">Ubah Riwayat</x-admin.master.menu-item>
+    @if ($row->tmt_akhir !== null)
+        <x-admin.master.menu-item icon="fas fa-trash-can" tone="danger" separated
+            @click="$dispatch('confirm-delete', { action: {{ \Illuminate\Support\Js::from(route('admin.employees.job-history.destroy', ['employee' => $row->employee_nik, 'job_history' => $row->id])) }}, name: {{ \Illuminate\Support\Js::from($label) }} })">Hapus Riwayat</x-admin.master.menu-item>
+    @endif
+</x-admin.row-menu>

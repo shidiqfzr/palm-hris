@@ -2,6 +2,7 @@
 
 use App\Exceptions\MppPeriodRuleViolationException;
 use App\Models\MppPeriod;
+use App\Services\Bezetting\BezettingBackfillService;
 use App\Services\EmployeeImportGovernanceService;
 use App\Services\EmployeeImportService;
 use App\Services\ManPowerPlanningService;
@@ -25,6 +26,11 @@ Artisan::command('hris:purge-import-governance', function (EmployeeImportGoverna
     $result = $governance->purgeExpired();
     $this->info("Pengajuan impor kedaluwarsa: {$result['expired']}; rekaman pembatalan dihapus: {$result['snapshots']}.");
 })->purpose('Menandai pengajuan impor kedaluwarsa dan menghapus rekaman data sebelum impor yang melewati masa pembatalan (UU PDP Compliance)');
+
+Artisan::command('hris:purge-bezetting-backfill', function (BezettingBackfillService $backfill) {
+    $result = $backfill->purge();
+    $this->info("Rekonstruksi Bezetting kedaluwarsa: {$result['expired']}; data berkas dihapus: {$result['purged']}; daftar tindak lanjut dihapus: {$result['followups_purged']}.");
+})->purpose('Menandai pengajuan rekonstruksi riwayat Bezetting kedaluwarsa dan menghapus data berkas serta daftar tindak lanjut yang tidak diperlukan lagi (UU PDP Compliance)');
 
 Artisan::command('hris:mpp-capture-period {--year= : Tahun periode (default: bulan sebelumnya)} {--month= : Bulan periode 1-12 (default: bulan sebelumnya)}', function (MppPeriodService $periods, ManPowerPlanningService $planning) {
     $default = now()->startOfMonth()->subMonth();
@@ -74,6 +80,7 @@ Artisan::command('hris:expire-mutasi-proposals', function (ChainProposalService 
 
 Schedule::command('hris:purge-import-files')->hourly();
 Schedule::command('hris:purge-import-governance')->daily();
+Schedule::command('hris:purge-bezetting-backfill')->daily();
 // SK struktur diterapkan lebih dulu agar mutasi terjadwal pada hari yang sama menuju struktur yang sudah baru.
 Schedule::command('hr:apply-structure-decrees')->dailyAt('00:00');
 Schedule::command('hr:apply-effective-mutations')->dailyAt('00:01');

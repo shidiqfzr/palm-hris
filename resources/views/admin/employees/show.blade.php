@@ -2,7 +2,7 @@
 
 @section('content')
 <div x-data="{
-    activeTab: 'biodata',
+    activeTab: ['#riwayat', '#riwayat-jabatan'].includes(window.location.hash) ? 'riwayat' : 'biodata',
     tabKeys(event) {
         const tabs = Array.from(event.currentTarget.querySelectorAll('[role=tab]'));
         const current = tabs.indexOf(document.activeElement);
@@ -185,18 +185,34 @@
                                     </x-slot:footer>
                                 </x-admin.modal>
                             </div>
-                        @elseif(! $employee->nomor_sk_berhenti)
-                            {{-- SK boleh menyusul setelah pemberhentian otomatis, tetapi tidak boleh terlewat. --}}
-                            <form method="POST" action="{{ route('admin.employees.separation-sk', $employee) }}" class="flex items-end gap-2">
-                                @csrf
-                                <x-admin.form.input name="nomor_sk" label="Nomor SK Pemberhentian" required maxlength="100" />
-                                <x-admin.form.input name="tanggal_sk" type="date" label="Tanggal SK" required />
-                                <x-admin.button type="submit" variant="primary" size="sm" once>Catat SK</x-admin.button>
-                            </form>
                         @endif
                     @endcan
                 </div>
             </div>
+
+            @can('separate-employee')
+                @if($employee->isSeparated() && ! $employee->nomor_sk_berhenti)
+                    {{-- SK boleh menyusul setelah pemberhentian otomatis, tetapi tidak boleh terlewat: pemberitahuan penuh lebar, isian di dialog (DESIGN.md §7.6). --}}
+                    <div x-data="{ open: {{ $errors->hasAny(['nomor_sk', 'tanggal_sk']) ? 'true' : 'false' }} }"
+                        class="mt-6 flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-xl border border-warning-200 bg-warning-50 px-4 py-3" role="note">
+                        <div class="flex items-start gap-3 text-sm text-warning-900">
+                            <i class="fas fa-file-circle-exclamation mt-0.5 text-warning-700" aria-hidden="true"></i>
+                            <p><span class="font-semibold">SK Pemberhentian belum dicatat.</span> Karyawan sudah diberhentikan per {{ $employee->tanggal_berhenti->format('d M Y') }} ({{ $employee->alasan_berhenti }}). Catat nomor dan tanggal SK agar arsip pemberhentian lengkap.</p>
+                        </div>
+                        <x-admin.button variant="secondary" size="sm" icon="fas fa-file-signature" class="shrink-0" @click="open = true">Catat SK Pemberhentian</x-admin.button>
+
+                        <x-admin.modal icon="fas fa-file-signature" form :action="route('admin.employees.separation-sk', $employee)"
+                            title="Catat SK Pemberhentian"
+                            description="Nomor dan tanggal SK dicatat pada data pemberhentian {{ $employee->nama }} dan tidak mengubah tanggal berhenti.">
+                            <x-admin.form.input name="nomor_sk" label="Nomor SK Pemberhentian" required maxlength="100" />
+                            <x-admin.form.input name="tanggal_sk" type="date" label="Tanggal SK" required />
+                            <x-slot:footer>
+                                <x-admin.button type="submit" icon="fas fa-check" once>Catat SK</x-admin.button>
+                            </x-slot:footer>
+                        </x-admin.modal>
+                    </div>
+                @endif
+            @endcan
         </div>
 
         <!-- 2. HORIZONTAL NAVIGATION TABS (Anti-Boxitis) -->

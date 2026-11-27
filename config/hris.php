@@ -17,6 +17,25 @@ return [
     |
     */
 
+    /*
+    |--------------------------------------------------------------------------
+    | Rekonstruksi Riwayat Karir dari Bezetting Bulanan
+    |--------------------------------------------------------------------------
+    |
+    | Persetujuan admin lain selalu wajib (tidak mengikuti import.require_approval). Masa pengajuan, masa
+    | pembatalan, dan ambang konfirmasi ketik mengikuti pengaturan impor di bawah.
+    | staging_retention_days : data terbaca dari berkas (terenkripsi) pada proses yang tidak diselesaikan
+    |                          dihapus setelah sekian hari (minimisasi data pribadi).
+    |
+    */
+    'bezetting' => [
+        'staging_retention_days' => (int) env('HRIS_BEZETTING_STAGING_RETENTION_DAYS', 30),
+        // Follow-up worklist of a saved run (NIK and month only, encrypted): time for HR to finish the Mutasi follow-up.
+        'followup_retention_days' => (int) env('HRIS_BEZETTING_FOLLOWUP_RETENTION_DAYS', 90),
+        'max_files' => 12,
+        'max_file_kb' => 10240,
+    ],
+
     'import' => [
         'require_approval' => (bool) env('HRIS_IMPORT_REQUIRE_APPROVAL', false),
         'approval_ttl_days' => (int) env('HRIS_IMPORT_APPROVAL_TTL_DAYS', 7),

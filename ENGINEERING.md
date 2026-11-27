@@ -242,6 +242,12 @@ Mesin pengembangan memerlukan data karyawan agar layar formasi, mutasi, pensiun,
 - **Lewat kode domain, bukan salinan rumus**: karyawan dibuat dengan Eloquent (event model aktif) sehingga `EmployeeObserver` mengisi RM Band, tanggal pensiun, dan MBT serta menulis riwayat penempatan awal pada `job_histories`; penilaian ditulis lewat `EvaluationService`. Seluruh proses satu transaksi dan komposisinya sama pada setiap kali jalan (tanggal dihitung relatif terhadap hari menjalankan).
 - Akun `admin` dan `admin2` (hanya lokal) memungkinkan persetujuan empat mata diuji tanpa data produksi.
 
+### 3.9 Uji Coba Rekonstruksi Riwayat dari Bezetting
+Rekonstruksi riwayat karir (DOMAIN.md §5.5) memakai berkas Bezetting asli yang berisi data pribadi, sehingga dijalankan bertahap dan tidak pernah oleh pengembang langsung di server produksi:
+1. **Lokal**: hanya pengujian otomatis dengan data sintetis. Berkas Bezetting asli tidak pernah masuk repositori (`*.xls` diabaikan Git) dan tidak dipakai sebagai fixture.
+2. **Salinan produksi**: basis data hasil pemulihan cadangan malam, terisolasi dari produksi. Jalankan Bezetting 2025 lebih dulu; SDM memeriksa sekitar 20 karyawan yang riwayatnya diketahui, lalu 2026.
+3. **Produksi**: dijalankan admin SDM lewat aplikasi dan disetujui admin lain, segera setelah cadangan baru diambil. Pemberitahuan kepada SDM sebelum komit: tanggal "Kosong sejak" pada monitoring formasi kosong dapat berubah karena riwayat tertutup bertambah.
+
 ---
 
 ## 4. Checklist Rilis & Deployment (Release Verification)

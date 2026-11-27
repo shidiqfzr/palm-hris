@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Livewire\Tables\JobHistoryTable;
 use App\Models\Employee;
 use App\Models\JobHistory;
+use App\Models\Position;
 use App\Models\StructureDecree;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -67,6 +68,41 @@ class JobHistoryTableTest extends TestCase
         return Livewire::test(JobHistoryTable::class, ['employeeId' => $this->employee->nik]);
     }
 
+    public function test_a_bezetting_row_shows_its_source_badge_estimated_start_and_file_text(): void
+    {
+        $this->makeHistory($this->employee, [
+            'jabatan' => 'Asisten Kepala Bezetting', 'tmt_awal' => '2019-02-01', 'tmt_akhir' => '2019-12-31',
+            'jenis_mutasi' => null, 'nomor_sk' => null, 'sumber' => JobHistory::SUMBER_BEZETTING, 'tmt_awal_diperkirakan' => true,
+            'jenis_perubahan_terdeteksi' => 'PERUBAHAN_JABATAN', 'teks_sumber' => 'Asisten Kepala | KEBUN INTI PARINDU (K.SAWIT)',
+            'catatan' => 'Direkonstruksi dari Bezetting Februari 2026 (bukan SK mutasi)',
+        ]);
+
+        $this->table()->set('perPage', 25)
+            ->assertSee('Bezetting Historis')
+            ->assertSee('(perkiraan)')
+            ->assertSee('Perubahan Jabatan')
+            ->assertSee('Bez Feb 2026: Asisten Kepala | KEBUN INTI PARINDU (K.SAWIT)');
+    }
+
+    public function test_main_and_concurrent_bezetting_rows_each_show_only_their_own_source_text_and_why_they_end(): void
+    {
+        JobHistory::where('employee_nik', $this->employee->nik)->delete(); // only the rows of this scenario
+        $text = 'Asisten Kepala (merangkap Manajer Kebun tmt 1 Februari 2024) | KEBUN PARINDU (KARET)';
+        $common = ['jenis_mutasi' => null, 'nomor_sk' => null, 'sumber' => JobHistory::SUMBER_BEZETTING, 'teks_sumber' => $text,
+            'catatan' => 'Direkonstruksi dari Bezetting Januari 2026 (bukan SK mutasi)', 'tmt_akhir' => '2026-02-28'];
+        $this->makeHistory($this->employee, $common + ['jabatan' => 'Asisten Kepala', 'tmt_awal' => '2023-11-01', 'jenis_perubahan_terdeteksi' => 'PENEMPATAN_AWAL']);
+        $this->makeHistory($this->employee, $common + ['jabatan' => 'Manajer Kebun', 'tmt_awal' => '2024-02-01', 'status_penugasan' => 'Plt', 'jenis_perubahan_terdeteksi' => 'TUGAS_RANGKAP']);
+        $this->makeHistory($this->employee, ['jabatan' => 'Manajer Kebun', 'tmt_awal' => '2026-03-01', 'tmt_akhir' => null, 'jenis_mutasi' => null, 'nomor_sk' => null, 'sumber' => JobHistory::SUMBER_DATA_AWAL]);
+
+        $html = $this->table()->set('perPage', 25)
+            ->assertSee('Bez Jan 2026: Asisten Kepala | KEBUN PARINDU (KARET)')
+            ->assertSee('Bez Jan 2026: merangkap Manajer Kebun tmt 1 Februari 2024 | KEBUN PARINDU (KARET)')
+            ->assertSeeHtml('title="Berakhir sebelum riwayat aplikasi dimulai (01 Mar 2026)"')
+            ->html();
+
+        $this->assertStringNotContainsString('>Bez Jan 2026: Asisten Kepala (merangkap', $html, 'the full cell text is only in the hover title');
+    }
+
     public function test_header_shows_the_row_count_without_title_or_export(): void
     {
         $total = $this->table()->instance()->rows->total();
@@ -99,10 +135,10 @@ class JobHistoryTableTest extends TestCase
             ->assertSet('perPage', 25)
             ->assertSeeInOrder(['Jabatan 07', 'Jabatan 06', 'Jabatan 05', 'Jabatan 04', 'Jabatan 03'])
             ->assertSeeHtml('id="per-page-riwayat_jabatan_page"')
-            // Sortable headers: Periode, Jabatan, Unit Kerja only.
+            // Sortable headers: Periode and Jabatan & Unit (sorted by position) only.
             ->assertSeeHtml("sortBy('tmt_awal')")
             ->assertSeeHtml("sortBy('jabatan')")
-            ->assertSeeHtml("sortBy('unit_kerja')")
+            ->assertDontSeeHtml("sortBy('unit_kerja')")
             ->assertDontSeeHtml("sortBy('jenis_mutasi')")
             ->assertDontSeeHtml("sortBy('nomor_sk')");
 
@@ -131,6 +167,17 @@ class JobHistoryTableTest extends TestCase
         $this->assertSame(0, $component->instance()->rows->total());
         $component->set('search', 'Karyawan Lain');
         $this->assertSame(0, $component->instance()->rows->total());
+    }
+
+    public function test_the_table_keeps_at_most_six_data_columns_with_unit_and_sk_on_sub_lines(): void
+    {
+        $columns = collect(invade($this->table()->instance())->columns())->reject(fn ($c) => $c->key === 'aksi');
+
+        $this->assertLessThanOrEqual(6, $columns->count(), 'DESIGN §7.5: at most six data columns, so the profile table fits 1366px');
+        $this->assertSame(['Periode', 'Jabatan & Unit', 'RM Band / Golongan', 'Mutasi & SK', 'Struktur yang Berlaku'], $columns->pluck('label')->values()->all());
+
+        JobHistory::where('jabatan', 'Jabatan 01')->update(['unit_kerja' => 'Kebun Ngabang', 'nomor_sk' => 'SK/DIR/777']);
+        $this->table()->set('search', 'Jabatan 01')->assertSee('Kebun Ngabang')->assertSee('SK/DIR/777');
     }
 
     public function test_tampered_sort_field_is_ignored(): void
@@ -164,26 +211,41 @@ class JobHistoryTableTest extends TestCase
         $this->assertSame(2, $component->instance()->rows->currentPage());
     }
 
-    public function test_row_action_still_works(): void
+    public function test_row_actions_are_one_kebab_menu_that_opens_the_shared_reasoned_delete_dialog(): void
     {
-        $history = JobHistory::where('jabatan', 'Jabatan 07')->firstOrFail();
-        $foreign = JobHistory::where('employee_nik', $this->other->nik)->firstOrFail();
+        $closed = JobHistory::where('jabatan', 'Jabatan 06')->firstOrFail();
+        $closed->update(['tmt_akhir' => '2020-06-30']);
 
         $this->table()
-            ->call('deleteRow', $history->id)
-            ->assertDontSee('Jabatan 07');
+            ->assertSeeHtml('aria-haspopup="menu"')
+            ->assertSee('Ubah Riwayat')
+            ->assertSee('Hapus Riwayat')
+            ->assertSeeHtml("\$dispatch('confirm-delete'")
+            ->assertSeeHtml('id="confirm-delete-reason"')
+            ->assertSee('Hapus Riwayat Jabatan')
+            // No row of coloured buttons and no browser confirm box (DESIGN §7.5, §7.6).
+            ->assertDontSeeHtml('confirm(\'')
+            ->assertDontSeeHtml('bg-warning-700 text-white');
+    }
 
-        $this->assertNull(JobHistory::find($history->id));
+    public function test_a_running_row_offers_no_delete(): void
+    {
+        JobHistory::where('employee_nik', $this->employee->nik)->update(['tmt_akhir' => '2020-12-31']);
+        JobHistory::where('jabatan', 'Jabatan 07')->update(['tmt_akhir' => null]);
 
-        // Another employee's history cannot be deleted through this table.
-        $this->table()->call('deleteRow', $foreign->id)->assertStatus(404);
-        $this->assertNotNull(JobHistory::find($foreign->id));
+        $html = $this->table()->html();
 
-        // Livewire drops flash data at the end of an update request that does not redirect, so the
-        // flashed text is checked by invoking the action directly on a mounted instance.
-        $second = JobHistory::where('jabatan', 'Jabatan 06')->firstOrFail();
-        $this->table()->instance()->deleteRow($second->id);
-        $this->assertSame('Riwayat jabatan berhasil dihapus.', session('message'));
+        $this->assertSame(6, substr_count($html, 'Hapus Riwayat</span>'), 'six closed rows offer delete, the running one does not');
+    }
+
+    public function test_the_rm_band_comes_from_the_master_formasi_and_old_names_fall_back_to_the_level(): void
+    {
+        Position::factory()->create(['nama' => 'Jabatan 07', 'rm_level' => 'RM-3']);
+
+        $this->table()
+            ->assertSee('RM Band / Golongan')
+            ->assertSeeHtml('>RM-3</span>')
+            ->assertSee('RM Band tidak tersedia: jabatan ini tidak tercantum pada Master Formasi saat ini');
     }
 
     public function test_employee_id_cannot_be_changed_from_the_client(): void
@@ -193,24 +255,14 @@ class JobHistoryTableTest extends TestCase
         $this->table()->set('employeeId', $this->other->nik);
     }
 
-    public function test_row_action_shows_loading_state(): void
+    public function test_table_actions_show_loading_state(): void
     {
-        $targets = 'search, sortBy, perPage, gotoPage, nextPage, previousPage, resetFilters, deleteRow';
+        $targets = 'search, sortBy, perPage, gotoPage, nextPage, previousPage, resetFilters';
 
-        // While the row action runs the skeleton replaces the rows, the table is busy, and the button is disabled.
         $this->table()
             ->assertSeeHtml('wire:loading.delay.remove wire:target="'.$targets.'"')
             ->assertSeeHtml('wire:loading.delay.class.remove="hidden" wire:target="'.$targets.'"')
-            ->assertSeeHtml('wire:loading.attr="aria-busy" wire:target="'.$targets.'"')
-            ->assertSeeHtml('wire:loading.attr="disabled" wire:target="deleteRow"');
-    }
-
-    public function test_cancelling_the_delete_confirm_stops_the_livewire_call(): void
-    {
-        // Livewire ignores preventDefault, so a cancelled confirm must stop the wire:click listener itself.
-        $this->table()
-            ->assertSeeHtml("onclick=\"confirm('Hapus riwayat jabatan ini?') || event.stopImmediatePropagation()\"")
-            ->assertDontSeeHtml('return confirm(');
+            ->assertSeeHtml('wire:loading.attr="aria-busy" wire:target="'.$targets.'"');
     }
 
     public function test_structure_in_force_column_matches_each_placement_with_the_decree_in_force_at_its_start(): void

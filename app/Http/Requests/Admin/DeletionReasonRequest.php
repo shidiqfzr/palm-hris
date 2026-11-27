@@ -2,7 +2,7 @@
 
 namespace App\Http\Requests\Admin;
 
-use App\Services\EmployeeDeletionService;
+use App\Support\ReasonRule;
 use Illuminate\Contracts\Validation\Validator;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Http\Exceptions\HttpResponseException;
@@ -26,7 +26,7 @@ class DeletionReasonRequest extends FormRequest
      */
     public function rules(): array
     {
-        return ['alasan' => EmployeeDeletionService::REASON_RULES];
+        return ['alasan' => ReasonRule::rules()];
     }
 
     /**
@@ -34,15 +34,7 @@ class DeletionReasonRequest extends FormRequest
      */
     public function messages(): array
     {
-        $min = EmployeeDeletionService::REASON_MIN_LENGTH;
-        $max = EmployeeDeletionService::REASON_MAX_LENGTH;
-
-        return [
-            'alasan.required' => "Alasan penghapusan wajib diisi (minimal {$min} karakter).",
-            'alasan.min' => "Alasan penghapusan minimal {$min} karakter.",
-            'alasan.max' => "Alasan penghapusan maksimal {$max} karakter.",
-            'alasan.string' => 'Alasan penghapusan harus berupa teks.',
-        ];
+        return ReasonRule::messages('alasan', 'penghapusan');
     }
 
     protected function failedValidation(Validator $validator): void
