@@ -92,9 +92,9 @@
                     <i class="fas fa-chevron-down text-[10px] text-surface-500 transition group-open:rotate-180" aria-hidden="true"></i>
                 </span>
             </summary>
-            <ul class="mt-3 pt-2 border-t border-surface-100 grid grid-cols-1 md:grid-cols-2 gap-x-8 divide-y md:divide-y-0 text-xs max-h-48 overflow-y-auto scrollbar-soft" tabindex="0" aria-label="Daftar berkas terbaca">
+            <ul class="mt-3 pt-2 border-t border-surface-200/80 grid grid-cols-1 md:grid-cols-2 gap-x-8 text-xs max-h-48 overflow-y-auto scrollbar-soft" tabindex="0" aria-label="Daftar berkas terbaca">
                 @foreach ($run->files ?? [] as $file)
-                    <li class="py-2 md:border-b md:border-surface-100 flex flex-wrap items-baseline justify-between gap-x-4 gap-y-0.5" title="Kode verifikasi berkas (SHA-256): {{ $file['sha256'] }}">
+                    <li class="py-2 border-b border-surface-100 flex flex-wrap items-baseline justify-between gap-x-4 gap-y-0.5" title="Kode verifikasi berkas (SHA-256): {{ $file['sha256'] }}">
                         <div class="flex items-baseline gap-2 min-w-0">
                             <span class="font-semibold text-surface-900 truncate">{{ $file['name'] }}</span>
                             <span class="font-mono text-[11px] text-surface-500">{{ substr($file['sha256'], 0, 16) }}…</span>
@@ -249,9 +249,9 @@
                 <i class="fas fa-triangle-exclamation text-danger-700 text-sm" aria-hidden="true"></i>
                 <h2 id="risk-title" class="text-sm font-bold text-danger-800">Tindakan Berisiko: Batalkan Rekonstruksi</h2>
             </div>
-            <div class="px-5 py-3.5 flex flex-col items-start gap-2.5">
+            <div class="px-5 py-3.5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                 <p class="text-xs text-surface-600 leading-relaxed">Pembatalan mungkin dalam {{ $undoWindowDays }} hari sejak disimpan, selama riwayatnya belum berubah. Riwayat tidak dihapus permanen; alasan pembatalan dicatat.</p>
-                <x-admin.button variant="danger" size="sm" icon="fas fa-rotate-left" @click="rollbackOpen = true">Batalkan Rekonstruksi</x-admin.button>
+                <x-admin.button variant="danger" size="sm" icon="fas fa-rotate-left" class="shrink-0" @click="rollbackOpen = true">Batalkan Rekonstruksi</x-admin.button>
             </div>
         </section>
     @endif
