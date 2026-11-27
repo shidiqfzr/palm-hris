@@ -10,10 +10,10 @@
         </div>
     @endif
 
-    {{-- Top overview: compact Ringkasan + Berkas Terbaca on the left, Jejak Keputusan on the right (no artificial vertical void inside Ringkasan; DESIGN.md §8.6a). --}}
-    <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-        <div class="lg:col-span-8 flex flex-col gap-6">
-            <section class="flex flex-col gap-4 bg-white rounded-2xl border border-surface-200/80 p-5 shadow-xs" aria-labelledby="summary-title">
+    {{-- Top overview: Ringkasan and Jejak Keputusan side-by-side at matching card height (no mt-auto void inside Ringkasan; DESIGN.md §8.6a). --}}
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch">
+        <div class="lg:col-span-8 flex flex-col">
+            <section class="flex-1 flex flex-col gap-4 bg-white rounded-2xl border border-surface-200/80 p-5 shadow-xs" aria-labelledby="summary-title">
                 <div class="flex flex-wrap items-center justify-between gap-3">
                     <h2 id="summary-title" class="text-base font-bold text-surface-900">Ringkasan</h2>
                     <x-admin.bezetting-status :status="$run->status" />
@@ -64,8 +64,8 @@
             </section>
         </div>
 
-        <aside class="lg:col-span-4 flex flex-col gap-6">
-            <section class="bg-white rounded-2xl border border-surface-200/80 p-5 shadow-xs" aria-labelledby="timeline-title">
+        <aside class="lg:col-span-4 flex flex-col">
+            <section class="flex-1 bg-white rounded-2xl border border-surface-200/80 p-5 shadow-xs" aria-labelledby="timeline-title">
                 <h2 id="timeline-title" class="text-base font-bold text-surface-900 mb-4">Jejak Keputusan</h2>
                 <x-admin.decision-timeline :steps="$steps" />
             </section>
@@ -92,9 +92,9 @@
                     <i class="fas fa-chevron-down text-[10px] text-surface-500 transition group-open:rotate-180" aria-hidden="true"></i>
                 </span>
             </summary>
-            <ul class="mt-3 pt-2 border-t border-surface-100 divide-y divide-surface-100 text-xs max-h-48 overflow-y-auto scrollbar-soft" tabindex="0" aria-label="Daftar berkas terbaca">
+            <ul class="mt-3 pt-2 border-t border-surface-100 grid grid-cols-1 md:grid-cols-2 gap-x-8 divide-y md:divide-y-0 text-xs max-h-48 overflow-y-auto scrollbar-soft" tabindex="0" aria-label="Daftar berkas terbaca">
                 @foreach ($run->files ?? [] as $file)
-                    <li class="py-2 flex flex-wrap items-baseline justify-between gap-x-4 gap-y-0.5" title="Kode verifikasi berkas (SHA-256): {{ $file['sha256'] }}">
+                    <li class="py-2 md:border-b md:border-surface-100 flex flex-wrap items-baseline justify-between gap-x-4 gap-y-0.5" title="Kode verifikasi berkas (SHA-256): {{ $file['sha256'] }}">
                         <div class="flex items-baseline gap-2 min-w-0">
                             <span class="font-semibold text-surface-900 truncate">{{ $file['name'] }}</span>
                             <span class="font-mono text-[11px] text-surface-500">{{ substr($file['sha256'], 0, 16) }}…</span>
@@ -245,12 +245,13 @@
 
     @if ($canRollback)
         <section class="bg-white rounded-2xl border border-danger-200 shadow-xs overflow-hidden" aria-labelledby="risk-title">
-            <div class="px-5 py-3.5 bg-danger-50 border-b border-danger-200">
-                <h2 id="risk-title" class="text-base font-bold text-danger-800"><i class="fas fa-triangle-exclamation mr-1.5" aria-hidden="true"></i>Tindakan Berisiko: Batalkan Rekonstruksi</h2>
+            <div class="px-5 py-3 bg-danger-50/80 border-b border-danger-200 flex items-center gap-2">
+                <i class="fas fa-triangle-exclamation text-danger-700 text-sm" aria-hidden="true"></i>
+                <h2 id="risk-title" class="text-sm font-bold text-danger-800">Tindakan Berisiko: Batalkan Rekonstruksi</h2>
             </div>
-            <div class="p-5 space-y-3">
-                <p class="text-sm text-surface-700">Pembatalan mungkin dalam {{ $undoWindowDays }} hari sejak disimpan, selama riwayatnya belum berubah. Riwayat tidak dihapus permanen; alasan pembatalan dicatat.</p>
-                <x-admin.button variant="danger" icon="fas fa-rotate-left" @click="rollbackOpen = true">Batalkan Rekonstruksi</x-admin.button>
+            <div class="px-5 py-3.5 flex flex-col items-start gap-2.5">
+                <p class="text-xs text-surface-600 leading-relaxed">Pembatalan mungkin dalam {{ $undoWindowDays }} hari sejak disimpan, selama riwayatnya belum berubah. Riwayat tidak dihapus permanen; alasan pembatalan dicatat.</p>
+                <x-admin.button variant="danger" size="sm" icon="fas fa-rotate-left" @click="rollbackOpen = true">Batalkan Rekonstruksi</x-admin.button>
             </div>
         </section>
     @endif
