@@ -10,11 +10,10 @@
         </div>
     @endif
 
-    {{-- Both columns always end at the same height (stretch): the summary card fills the left column and the last card of the
-         right column fills the right one, whether the file list is open or closed (DESIGN.md §8.6a). --}}
-    <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch">
-        <div class="lg:col-span-8 flex flex-col">
-            <section class="flex-1 flex flex-col gap-4 bg-white rounded-2xl border border-surface-200/80 p-5 shadow-xs" aria-labelledby="summary-title">
+    {{-- Top overview: compact Ringkasan + Berkas Terbaca on the left, Jejak Keputusan on the right (no artificial vertical void inside Ringkasan; DESIGN.md §8.6a). --}}
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+        <div class="lg:col-span-8 flex flex-col gap-6">
+            <section class="flex flex-col gap-4 bg-white rounded-2xl border border-surface-200/80 p-5 shadow-xs" aria-labelledby="summary-title">
                 <div class="flex flex-wrap items-center justify-between gap-3">
                     <h2 id="summary-title" class="text-base font-bold text-surface-900">Ringkasan</h2>
                     <x-admin.bezetting-status :status="$run->status" />
@@ -39,30 +38,61 @@
                             ['label' => 'Perubahan perlu diperiksa', 'value' => $summary['perpindahan_belum_tercatat'] ?? 0, 'view' => 'tindak_lanjut', 'saring' => 'perpindahan', 'warn' => true],
                         ];
                     @endphp
-                    {{-- Secondary counters sit at the bottom of the card behind one separator, so a stretched card never spreads its content apart. --}}
-                    <div class="mt-auto pt-4 border-t border-surface-100 space-y-3">
-                    <ul class="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-1 text-sm">
-                        @foreach ($counters as $counter)
-                            <li>
-                                <button type="button"
-                                    wire:click="$dispatch('recap-filter', { view: '{{ $counter['view'] }}', saring: '{{ $counter['saring'] }}' })"
-                                    @click="$nextTick(() => document.getElementById('rekap')?.scrollIntoView({ behavior: 'smooth', block: 'start' }))"
-                                    @disabled($counter['value'] === 0)
-                                    class="w-full flex items-baseline justify-between gap-3 rounded-lg px-2 py-1 -mx-2 text-left transition enabled:hover:bg-surface-50 enabled:cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 disabled:cursor-default">
-                                    <span class="text-surface-600">{{ $counter['label'] }}</span>
-                                    <span class="flex items-baseline gap-2">
-                                        <span class="font-mono tabular-nums font-semibold {{ $counter['warn'] && $counter['value'] > 0 ? 'text-warning-800' : 'text-surface-900' }}">{{ $counter['value'] }}</span>
-                                        @if ($counter['value'] > 0)<span class="text-[11px] font-semibold text-primary-700 whitespace-nowrap">Lihat daftar<span class="sr-only"> {{ $counter['label'] }}</span></span>@endif
-                                    </span>
-                                </button>
+                    <div class="pt-3 border-t border-surface-100 space-y-2.5">
+                        <ul class="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-1 text-sm">
+                            @foreach ($counters as $counter)
+                                <li>
+                                    <button type="button"
+                                        wire:click="$dispatch('recap-filter', { view: '{{ $counter['view'] }}', saring: '{{ $counter['saring'] }}' })"
+                                        @click="$nextTick(() => document.getElementById('rekap')?.scrollIntoView({ behavior: 'smooth', block: 'start' }))"
+                                        @disabled($counter['value'] === 0)
+                                        class="w-full flex items-baseline justify-between gap-3 rounded-lg px-2 py-1 -mx-2 text-left transition enabled:hover:bg-surface-50 enabled:cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 disabled:cursor-default">
+                                        <span class="text-surface-600">{{ $counter['label'] }}</span>
+                                        <span class="flex items-baseline gap-2">
+                                            <span class="font-mono tabular-nums font-semibold {{ $counter['warn'] && $counter['value'] > 0 ? 'text-warning-800' : 'text-surface-900' }}">{{ $counter['value'] }}</span>
+                                            @if ($counter['value'] > 0)<span class="text-[11px] font-semibold text-primary-700 whitespace-nowrap">Lihat daftar<span class="sr-only"> {{ $counter['label'] }}</span></span>@endif
+                                        </span>
+                                    </button>
+                                </li>
+                            @endforeach
+                        </ul>
+                        @if (($summary['perpindahan_belum_tercatat'] ?? 0) > 0)
+                            <p class="text-xs text-surface-600">Perpindahan sesudah riwayat pertama di aplikasi tidak ditulis oleh rekonstruksi. Proses melalui modul Mutasi beserta SK-nya.</p>
+                        @endif
+                    </div>
+                @endif
+            </section>
+
+            <section class="bg-white rounded-2xl border border-surface-200/80 p-5 shadow-xs space-y-3" aria-labelledby="files-title">
+                <div class="flex flex-wrap items-baseline justify-between gap-2">
+                    <h2 id="files-title" class="text-base font-bold text-surface-900">Berkas Terbaca</h2>
+                    @php $warnings = collect($run->files ?? [])->sum(fn ($file) => count($file['warnings'] ?? [])); @endphp
+                    <p class="text-sm text-surface-800">
+                        <span class="font-semibold">{{ $filesSummary['count'] }} berkas</span> · {{ $run->period_from }} s.d. {{ $run->period_to }} · {{ number_format($filesSummary['rows'], 0, ',', '.') }} baris
+                        @if ($warnings > 0)<span class="ml-2 text-xs font-semibold text-warning-800"><i class="fas fa-triangle-exclamation mr-1" aria-hidden="true"></i>{{ $warnings }} peringatan</span>@endif
+                    </p>
+                </div>
+                <p class="text-xs text-surface-600">Berkas sudah dihapus dari server; yang tersimpan hanya nama, periode, dan kode verifikasinya.</p>
+                <details class="group rounded-xl border border-surface-200" @if ($warnings > 0) open @endif>
+                    <summary class="flex items-center justify-between gap-2 px-3 py-2 cursor-pointer text-xs font-semibold text-surface-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 rounded-xl">
+                        <span>Daftar berkas</span>
+                        <i class="fas fa-chevron-down text-[10px] text-surface-400 transition group-open:rotate-180" aria-hidden="true"></i>
+                    </summary>
+                    <ul class="divide-y divide-surface-100 text-xs px-3 pb-1 max-h-44 overflow-y-auto scrollbar-soft" tabindex="0" aria-label="Daftar berkas terbaca">
+                        @foreach ($run->files ?? [] as $file)
+                            <li class="py-2" title="Kode verifikasi berkas (SHA-256): {{ $file['sha256'] }}">
+                                <div class="flex items-center justify-between gap-2">
+                                    <span class="font-semibold text-surface-900 truncate">{{ $file['name'] }}</span>
+                                    <span class="font-mono tabular-nums text-surface-600 shrink-0">{{ $file['rows'] }} baris</span>
+                                </div>
+                                <span class="block font-mono text-[11px] text-surface-500 break-all">{{ substr($file['sha256'], 0, 16) }}…</span>
+                                @foreach ($file['warnings'] ?? [] as $warning)
+                                    <span class="mt-1 block text-[11px] text-warning-800"><i class="fas fa-triangle-exclamation mr-1" aria-hidden="true"></i>{{ $warning }}</span>
+                                @endforeach
                             </li>
                         @endforeach
                     </ul>
-                    @if (($summary['perpindahan_belum_tercatat'] ?? 0) > 0)
-                        <p class="text-xs text-surface-600">Perpindahan sesudah riwayat pertama di aplikasi tidak ditulis oleh rekonstruksi. Proses melalui modul Mutasi beserta SK-nya.</p>
-                    @endif
-                    </div>
-                @endif
+                </details>
             </section>
         </div>
 
@@ -70,37 +100,6 @@
             <section class="bg-white rounded-2xl border border-surface-200/80 p-5 shadow-xs" aria-labelledby="timeline-title">
                 <h2 id="timeline-title" class="text-base font-bold text-surface-900 mb-4">Jejak Keputusan</h2>
                 <x-admin.decision-timeline :steps="$steps" />
-            </section>
-
-            <section class="flex-1 bg-white rounded-2xl border border-surface-200/80 p-5 shadow-xs space-y-3" aria-labelledby="files-title">
-                <h2 id="files-title" class="text-base font-bold text-surface-900">Berkas Terbaca</h2>
-                @php $warnings = collect($run->files ?? [])->sum(fn ($file) => count($file['warnings'] ?? [])); @endphp
-                {{-- A summary line keeps the two top columns balanced; the list opens on request (open by default when a file has a warning). --}}
-                <p class="text-sm text-surface-800">
-                    <span class="font-semibold">{{ $filesSummary['count'] }} berkas</span> · {{ $run->period_from }} s.d. {{ $run->period_to }} · {{ number_format($filesSummary['rows'], 0, ',', '.') }} baris
-                    @if ($warnings > 0)<span class="block mt-1 text-xs font-semibold text-warning-800"><i class="fas fa-triangle-exclamation mr-1" aria-hidden="true"></i>{{ $warnings }} peringatan berkas</span>@endif
-                </p>
-                <p class="text-xs text-surface-600">Berkas sudah dihapus dari server; yang tersimpan hanya nama, periode, dan kode verifikasinya.</p>
-                <details class="group rounded-xl border border-surface-200" @if ($warnings > 0) open @endif>
-                    <summary class="flex items-center justify-between gap-2 px-3 py-2 cursor-pointer text-xs font-semibold text-surface-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 rounded-xl">
-                        <span>Daftar berkas</span>
-                        <i class="fas fa-chevron-down text-[10px] text-surface-400 transition group-open:rotate-180" aria-hidden="true"></i>
-                    </summary>
-                <ul class="divide-y divide-surface-100 text-xs px-3 pb-1 max-h-44 overflow-y-auto scrollbar-soft" tabindex="0" aria-label="Daftar berkas terbaca">
-                    @foreach ($run->files ?? [] as $file)
-                        <li class="py-2" title="Kode verifikasi berkas (SHA-256): {{ $file['sha256'] }}">
-                            <div class="flex items-center justify-between gap-2">
-                                <span class="font-semibold text-surface-900 truncate">{{ $file['name'] }}</span>
-                                <span class="font-mono tabular-nums text-surface-600 shrink-0">{{ $file['rows'] }} baris</span>
-                            </div>
-                            <span class="block font-mono text-[11px] text-surface-500 break-all">{{ substr($file['sha256'], 0, 16) }}…</span>
-                            @foreach ($file['warnings'] ?? [] as $warning)
-                                <span class="mt-1 block text-[11px] text-warning-800"><i class="fas fa-triangle-exclamation mr-1" aria-hidden="true"></i>{{ $warning }}</span>
-                            @endforeach
-                        </li>
-                    @endforeach
-                </ul>
-                </details>
             </section>
         </aside>
     </div>
