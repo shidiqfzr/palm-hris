@@ -566,6 +566,21 @@ class BezettingBackfillServiceTest extends TestCase
         $this->assertSame($empA->nik, BezettingLegacyNikMap::where('legacy_nik_hash', $sharedHash)->value('employee_nik'));
     }
 
+    public function test_rollback_refuses_when_a_backfilled_row_was_manually_soft_deleted_and_purge_command_runs(): void
+    {
+        $run = $this->committedRunFromFreshFiles();
+        JobHistory::where('backfill_run_id', $run->id)->firstOrFail()->delete();
+
+        try {
+            $this->service()->rollback($run, $this->checker, 'Mencoba membatalkan setelah baris dihapus manual');
+            $this->fail('Expected rollback to refuse when a backfilled row was manually soft-deleted.');
+        } catch (ImportAbortedException $e) {
+            $this->assertStringContainsString('sudah berubah sesudah disimpan', $e->getMessage());
+        }
+
+        $this->artisan('hris:purge-bezetting-backfill')->assertSuccessful();
+    }
+
     private function committedRunFromFreshFiles(): BezettingBackfillRun
     {
         $employee = Employee::factory()->create(['tmt_bekerja' => '2000-01-01',

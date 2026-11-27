@@ -158,10 +158,13 @@ class BackfillPlanner
                         $resolvedRows[] = $row;
                     } elseif ($hash !== '') {
                         $key = 'L:'.substr($hash, 0, 8);
-                        if ($rowName !== '') {
-                            $fileNames[$key] ??= $rowName;
+                        if ($rowName !== '' && ($fileNames[$key] ?? '') === '') {
+                            $fileNames[$key] = $rowName;
                         }
-                        $excluded[$key] ??= ['reason' => self::EXCLUDED_LEGACY_UNMAPPED, 'periode' => $snapshot['period'], 'nama' => $fileNames[$key] ?? ''];
+                        $excluded[$key] ??= ['reason' => self::EXCLUDED_LEGACY_UNMAPPED, 'periode' => $snapshot['period'], 'nama' => ''];
+                        if ($rowName !== '' && ($excluded[$key]['nama'] ?? '') === '') {
+                            $excluded[$key]['nama'] = $rowName;
+                        }
                     }
 
                     continue;
@@ -240,6 +243,9 @@ class BackfillPlanner
             // A row the reader could not use only because its position text is invalid still proves the person is listed that month.
             foreach ($snapshot['issues'] ?? [] as $issue) {
                 $issueNik = (string) ($issue['nik'] ?? '');
+                if ($issueNik === '' && ! empty($issue['legacy_nik_hash'])) {
+                    $issueNik = (string) ($crosswalk[(string) $issue['legacy_nik_hash']] ?? '');
+                }
                 if ($issueNik !== '' && ! isset($excluded[$issueNik]) && isset($seen[$issueNik])) {
                     $present[$issueNik][$snapshot['period']] = true;
                     $unreadable[$issueNik][] = $snapshot['period'];

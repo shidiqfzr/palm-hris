@@ -27,7 +27,12 @@ class BezettingBackfillIndex extends Component
     /** @var array<int, TemporaryUploadedFile> */
     public array $files = [];
 
-    public int $perPage = 10;
+    public int $perPage = 25;
+
+    public function boot(): void
+    {
+        $this->authorizeImport();
+    }
 
     /** Content types an Excel workbook reports: .xls (also as its OLE container) and .xlsx (also as its zip container). */
     private const WORKBOOK_TYPES = [
@@ -46,6 +51,7 @@ class BezettingBackfillIndex extends Component
     public function mount(): void
     {
         $this->authorizeImport();
+        $this->perPage = (int) config('hris.pagination.default', 25);
     }
 
     public function stage(BezettingBackfillService $service)
@@ -98,7 +104,7 @@ class BezettingBackfillIndex extends Component
 
         return view('livewire.admin.employees.bezetting-backfill-index', [
             'runs' => BezettingBackfillRun::query()->latest('id')
-                ->paginate(in_array($this->perPage, array_map('intval', config('hris.pagination.options')), true) ? $this->perPage : 10),
+                ->paginate(in_array($this->perPage, array_map('intval', config('hris.pagination.options')), true) ? $this->perPage : (int) config('hris.pagination.default', 25)),
             'undoWindowDays' => (int) config('hris.import.undo_window_days', 7),
             'approvalTtlDays' => (int) config('hris.import.approval_ttl_days', 7),
             'maxFiles' => (int) config('hris.bezetting.max_files', 12),

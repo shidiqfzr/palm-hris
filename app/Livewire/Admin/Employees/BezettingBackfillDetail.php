@@ -14,7 +14,9 @@ use App\Services\Import\PositionNameMatcher;
 use App\Support\HrisPermission;
 use App\Support\ReasonRule;
 use Illuminate\Contracts\View\View;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
+use Livewire\Attributes\Locked;
 use Livewire\Attributes\On;
 use Livewire\Component;
 use Livewire\WithPagination;
@@ -29,6 +31,7 @@ class BezettingBackfillDetail extends Component
     use WithCollectionTable;
     use WithPagination;
 
+    #[Locked]
     public BezettingBackfillRun $run;
 
     public int $perPage = 25;
@@ -52,6 +55,9 @@ class BezettingBackfillDetail extends Component
     /** Filter a summary counter asked for (e.g. "perkiraan"); the recap tab opens with it. */
     public string $recapFilter = '';
 
+    /** Incremented on every summary counter click so re-clicking the same counter after a recap reset remounts cleanly. */
+    public int $recapNonce = 0;
+
     public const SECTIONS = [
         'nama' => 'Nama yang Perlu Diputuskan',
         'riwayat' => 'Riwayat yang Akan Ditulis',
@@ -60,6 +66,11 @@ class BezettingBackfillDetail extends Component
     ];
 
     private ?array $plan = null;
+
+    public function boot(): void
+    {
+        $this->authorizeImport();
+    }
 
     public function mount(BezettingBackfillRun $run): void
     {
@@ -79,6 +90,7 @@ class BezettingBackfillDetail extends Component
     {
         $this->section = $view === 'tindak_lanjut' ? 'tindak_lanjut' : 'riwayat';
         $this->recapFilter = $saring;
+        $this->recapNonce++;
     }
 
     public function updatedKindFilter(): void
@@ -148,14 +160,14 @@ class BezettingBackfillDetail extends Component
 
             return;
         }
-        $this->act(function () use ($service) {
+        $this->act(fn () => DB::transaction(function () use ($service) {
             $names = $this->bulkCandidates(false);
             foreach ($names as $item) {
                 $service->decide($item['kind'], $item['text'], BezettingNameMapping::DECISION_KEEP, null, auth()->user(), 'Keputusan massal: nama tanpa padanan pada Master Formasi disimpan apa adanya');
             }
 
             return count($names);
-        }, 'Nama tanpa padanan pada Master Formasi disimpan apa adanya.');
+        }), 'Nama tanpa padanan pada Master Formasi disimpan apa adanya.');
     }
 
     /** Explicit bulk decision: every undecided unit or position name that has a suggestion is mapped to it (each one audited). */
@@ -169,7 +181,7 @@ class BezettingBackfillDetail extends Component
 
             return;
         }
-        $this->act(function () use ($service) {
+        $this->act(fn () => DB::transaction(function () use ($service) {
             $names = $this->bulkCandidates(true);
             foreach ($names as $item) {
                 $key = self::key($item['kind'], $item['text']);
@@ -177,18 +189,20 @@ class BezettingBackfillDetail extends Component
             }
 
             return count($names);
-        }, 'Nama dipetakan sesuai saran Master Formasi.');
+        }), 'Nama dipetakan sesuai saran Master Formasi.');
     }
 
     /**
      * Undecided unit and position names with (or without) a look-alike in the Master Formasi, each with its suggestion.
      *
+     * @param  list<string>|null  $units
+     * @param  list<string>|null  $positions
      * @return list<array{kind: string, text: string, count: int, suggestion: ?string}>
      */
-    private function bulkCandidates(bool $withSuggestion): array
+    private function bulkCandidates(bool $withSuggestion, ?array $units = null, ?array $positions = null): array
     {
-        $units = Unit::query()->orderBy('nama')->pluck('nama')->all();
-        $positions = Position::query()->orderBy('nama')->pluck('nama')->all();
+        $units ??= Unit::query()->orderBy('nama')->pluck('nama')->all();
+        $positions ??= Position::query()->orderBy('nama')->pluck('nama')->all();
         $items = [];
         foreach ($this->currentPlan()['blocking'] ?? [] as $item) {
             $suggestion = match ($item['kind']) {
@@ -292,8 +306,8 @@ class BezettingBackfillDetail extends Component
             'undecidedTotal' => count($plan['blocking'] ?? []),
             'decidedTotal' => count($plan['decided'] ?? []),
             'blockingCounts' => collect($activeSource)->countBy('kind')->all(),
-            'suggestedCount' => $editable && ! $showingDecided && $plan !== null ? count($this->bulkCandidates(true)) : 0,
-            'unmatchedCount' => $editable && ! $showingDecided && $plan !== null ? count($this->bulkCandidates(false)) : 0,
+            'suggestedCount' => $editable && ! $showingDecided && $plan !== null ? count($this->bulkCandidates(true, $units, $positions)) : 0,
+            'unmatchedCount' => $editable && ! $showingDecided && $plan !== null ? count($this->bulkCandidates(false, $units, $positions)) : 0,
             'autoCount' => count($plan['auto'] ?? []),
             'options' => [
                 BezettingNameMapping::KIND_UNIT => $units,

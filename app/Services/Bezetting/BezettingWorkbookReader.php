@@ -264,8 +264,9 @@ class BezettingWorkbookReader
             $jabatan = trim((string) preg_replace('/\s+/u', ' ', (string) $sheet->getCell([$columns['jabatan'], $row])->getValue()));
             $golonganCell = trim((string) $sheet->getCell([$columns['golongan'], $row])->getValue());
 
-            // Empty rows and column-number rows (1, 2, 3 …).
-            if (($nama === '' || preg_match('/^\d+$/', $nama) === 1) && ($rawNik === '' || preg_match('/^\d+$/', $rawNik) === 1)) {
+            // Empty rows and column-number rows (1, 2, 3 …). Only 1–2 digit numbers count as column numbers so real
+            // 7–15 digit employee IDs on nameless rows are never silently dropped.
+            if (($nama === '' || preg_match('/^\d{1,2}$/', $nama) === 1) && ($rawNik === '' || preg_match('/^\d{1,2}$/', $rawNik) === 1)) {
                 continue;
             }
 
@@ -316,10 +317,12 @@ class BezettingWorkbookReader
                 : '';
 
             if ($jabatan !== '' && mb_strlen($jabatan) < self::MIN_JABATAN_LENGTH) {
-                // The NIK is valid, so the person IS listed this month; the planner keeps them present and carries their last state forward.
+                // The NIK (or legacy hash) is valid, so the person IS listed this month; the planner keeps them present and carries their last state forward.
                 $issue = ['row' => $row, 'code' => 'jabatan_tidak_valid'];
                 if ($nik !== '') {
                     $issue['nik'] = $nik;
+                } elseif ($legacyHash !== null) {
+                    $issue['legacy_nik_hash'] = $legacyHash;
                 }
                 $issues[] = $issue;
 

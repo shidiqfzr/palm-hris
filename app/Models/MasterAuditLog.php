@@ -90,7 +90,11 @@ class MasterAuditLog extends Model
         'bezetting.rejected' => 'Rekonstruksi riwayat Bezetting dikembalikan',
         'bezetting.rolled_back' => 'Rekonstruksi riwayat Bezetting dibatalkan',
         'bezetting.expired' => 'Rekonstruksi riwayat Bezetting kedaluwarsa',
+        'bezetting.withdrawn' => 'Rekonstruksi riwayat Bezetting ditutup pengaju',
         'bezetting_access.export' => 'Daftar verifikasi Bezetting diunduh',
+        'job_history.created' => 'Riwayat jabatan ditambahkan (koreksi data)',
+        'job_history.updated' => 'Riwayat jabatan dikoreksi',
+        'job_history.deleted' => 'Riwayat jabatan dihapus',
     ];
 
     public const ENTITY_LABELS = [
@@ -110,6 +114,7 @@ class MasterAuditLog extends Model
         'structure_as_of' => 'Versi Struktur',
         'bezetting_run' => 'Rekonstruksi Riwayat Bezetting',
         'bezetting_mapping' => 'Pemetaan Nama Bezetting',
+        'job_history' => 'Riwayat Jabatan',
     ];
 
     /** Istilah bisnis untuk kolom yang tercatat pada nilai lama/baru. */
@@ -170,6 +175,23 @@ class MasterAuditLog extends Model
         'kategori_asesmen' => 'Kategori Asesmen',
         'keterangan_asesmen' => 'Keterangan Asesmen',
         'expired_asesmen' => 'Masa Berlaku Asesmen',
+        'unit_kerja' => 'Unit Kerja',
+        'golongan' => 'Golongan',
+        'tmt_awal' => 'TMT Awal',
+        'tmt_akhir' => 'TMT Akhir',
+        'jenis_mutasi' => 'Jenis Mutasi',
+        'catatan' => 'Catatan',
+        'berkas' => 'Jumlah Berkas',
+        'keputusan' => 'Keputusan',
+        'tujuan' => 'Nama Tujuan',
+        'baris_riwayat' => 'Baris Riwayat',
+        'karyawan' => 'Jumlah Karyawan',
+        'nama_belum_diputuskan' => 'Nama Belum Diputuskan',
+        'karyawan_dikecualikan' => 'Karyawan Dikecualikan',
+        'diperkirakan' => 'Tanggal Mulai Perkiraan',
+        'celah' => 'Celah Bulan',
+        'keluar_daftar' => 'Keluar dari Daftar',
+        'perpindahan_belum_tercatat' => 'Perubahan Perlu Diperiksa',
     ];
 
     /**

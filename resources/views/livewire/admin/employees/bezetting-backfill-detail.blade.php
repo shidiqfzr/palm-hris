@@ -153,6 +153,7 @@
                 </div>
                 <x-admin.table.guide :guide="\App\Support\BezettingReviewGuide::names()" />
                 <div class="relative overflow-x-auto">
+                    <x-admin.table.skeleton target="kindFilter,decisionFilter,gotoPage,nextPage,previousPage" :rows="5" :columns="3" />
                     {{-- Fixed layout on desktop: the Muncul and Keputusan columns keep the same width and position whatever the names are, so the pickers line up on every page and filter. --}}
                     <table class="w-full text-left border-collapse text-xs lg:table-fixed">
                         <thead class="bg-surface-50">
@@ -223,7 +224,7 @@
         @if (in_array($currentSection, ['riwayat', 'tindak_lanjut', 'dikecualikan'], true))
             {{-- One recap component per tab (no nested tabs); a summary counter opens it with its filter. --}}
             <livewire:admin.employees.bezetting-run-recap :run-id="$run->id" :view="['riwayat' => 'karyawan', 'tindak_lanjut' => 'tindak_lanjut', 'dikecualikan' => 'dikecualikan'][$currentSection]" :saring="$recapFilter"
-                :key="'recap-'.$run->id.'-'.$run->status.'-'.$currentSection.'-'.$recapFilter" />
+                :key="'recap-'.$run->id.'-'.$run->status.'-'.$currentSection.'-'.$recapFilter.'-'.$recapNonce" />
         @endif
     </section>
 

@@ -37,6 +37,7 @@
     <x-admin.table.card>
         <x-admin.table.header title="Proses Rekonstruksi" :paginator="$runs" noun="Proses" />
         <div class="relative overflow-x-auto">
+            <x-admin.table.skeleton target="perPage,gotoPage,nextPage,previousPage" :rows="5" :columns="7" />
             <table class="w-full text-left border-collapse text-xs">
                 <thead class="bg-surface-50">
                     <tr class="border-b border-surface-200">

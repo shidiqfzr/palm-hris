@@ -340,4 +340,26 @@ class BezettingWorkbookReaderTest extends TestCase
         $this->assertSame(BezettingLegacyNikMap::hashFromRaw('123456789012340'), $result['rows'][0]['legacy_nik_hash']);
         $this->assertStringNotContainsString('123456789012340', json_encode($result['rows']));
     }
+
+    public function test_nameless_row_with_valid_numeric_nik_is_retained_and_legacy_short_position_keeps_hash(): void
+    {
+        $rows = [
+            ['PER AGUSTUS 2015'],
+            ['NO', 'N A M A', 'NIK', 'JABATAN', 'GOL', 'TGL. DALAM JABATAN'],
+            [1, 2, 3, 4, 5, 6],
+            ['', 'BAGIAN TANAMAN'],
+            [1, '', 99000088, 'Asisten Tanaman', 'IIIB/01', $this->serial('2014-05-01')],
+            [2, 'Karyawan Typo Legacy', '000.0716.8888.8888', 'x', 'IIIB/01', $this->serial('2014-05-01')],
+        ];
+
+        $result = $this->reader()->read($this->workbook($rows), 'Bez Agustus 2015.xls');
+
+        $this->assertCount(1, $result['rows']);
+        $this->assertSame('99000088', $result['rows'][0]['nik']);
+        $this->assertSame([[
+            'row' => 6,
+            'code' => 'jabatan_tidak_valid',
+            'legacy_nik_hash' => BezettingLegacyNikMap::hashFromRaw('000.0716.8888.8888'),
+        ]], $result['issues']);
+    }
 }

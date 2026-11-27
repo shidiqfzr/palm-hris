@@ -92,7 +92,7 @@ class ConcurrentJobTextParser
             $status = Employee::STATUS_PJS;
         } elseif (preg_match('/diperbantukan/i', $text)) {
             $status = Employee::STATUS_DIPERBANTUKAN;
-        } elseif (preg_match('/^pj\b/i', $text)) {
+        } elseif (preg_match('/^(?:merangkap\s+)?pj\b/i', $text)) {
             $status = Employee::STATUS_PJ;
         }
 

@@ -357,7 +357,11 @@ class BezettingBackfillService
             }
 
             $rows = JobHistory::query()->where('backfill_run_id', $locked->id);
-            if ((clone $rows)->where('updated_at', '>', $locked->committed_at)->exists()) {
+            $tampered = JobHistory::withTrashed()
+                ->where('backfill_run_id', $locked->id)
+                ->where(fn ($q) => $q->where('updated_at', '>', $locked->committed_at)->orWhereNotNull('deleted_at'))
+                ->exists();
+            if ($tampered) {
                 throw new ImportAbortedException('Sebagian riwayat dari proses ini sudah berubah sesudah disimpan, sehingga tidak dapat dibatalkan.');
             }
 

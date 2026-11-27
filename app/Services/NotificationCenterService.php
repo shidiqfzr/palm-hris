@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\BezettingBackfillRun;
 use App\Models\Employee;
 use App\Models\EmployeeImportLog;
 use App\Models\MutasiChainProposal;
@@ -34,6 +35,24 @@ class NotificationCenterService
                 'icon' => 'fas fa-file-import',
                 'url' => route('admin.employees.import.batches.index', ['status' => 'pending']),
             ];
+        }
+
+        if (Gate::forUser($user)->allows(HrisPermission::KARYAWAN_IMPORT)) {
+            $pendingBezetting = BezettingBackfillRun::query()
+                ->where('status', BezettingBackfillRun::STATUS_PENDING)
+                ->where('maker_id', '!=', $user->id)
+                ->orderBy('id')
+                ->get();
+            if ($pendingBezetting->isNotEmpty()) {
+                $items[] = [
+                    'key' => 'rekonstruksi-bezetting',
+                    'title' => 'Rekonstruksi Riwayat Karir Menunggu Persetujuan',
+                    'detail' => $pendingBezetting->count().' proses rekonstruksi Bezetting menunggu persetujuan Anda.',
+                    'count' => $pendingBezetting->count(),
+                    'icon' => 'fas fa-timeline',
+                    'url' => $pendingBezetting->count() === 1 ? route('admin.employees.bezetting.show', $pendingBezetting->first()) : route('admin.employees.bezetting.index'),
+                ];
+            }
         }
 
         if (Gate::forUser($user)->allows(HrisPermission::MUTASI_APPROVE)) {
