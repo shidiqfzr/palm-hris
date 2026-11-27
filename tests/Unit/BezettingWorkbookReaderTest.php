@@ -102,7 +102,7 @@ class BezettingWorkbookReaderTest extends TestCase
         $row = $this->reader()->read($this->workbook($this->columnLayout()), 'Bez Oktober 2026.xlsx')['rows'][0];
 
         $this->assertSame(
-            ['row', 'nik', 'nama', 'jabatan', 'unit', 'unit_dari_judul_bagian', 'golongan', 'tanggal_dalam_jabatan', 'tmt_unit_kerja', 'tanggal_lahir', 'tanggal_pensiun'],
+            ['row', 'nik', 'legacy_nik_hash', 'is_legacy_nik', 'nama', 'jabatan', 'unit', 'unit_dari_judul_bagian', 'golongan', 'tanggal_dalam_jabatan', 'tmt_unit_kerja', 'tanggal_lahir', 'tanggal_pensiun'],
             array_keys($row),
         );
         $this->assertNotContains('Islam', $row);
@@ -154,6 +154,24 @@ class BezettingWorkbookReaderTest extends TestCase
         $this->assertSame('BAGIAN TANAMAN', $result['rows'][0]['unit']);
     }
 
+    public function test_a_one_letter_position_is_reported_as_unreadable_and_never_becomes_a_name_to_decide(): void
+    {
+        $rows = [
+            ['PER MEI 2025'],
+            ['NO', 'N A M A', 'NIK', 'JABATAN', 'GOL 2025', 'TGL. DALAM JABATAN'],
+            ['', 'BAGIAN TANAMAN'],
+            [1, 'Karyawan Contoh Delapan', 99000008, 'f', 'IIIA/01', ''],
+            [2, 'Karyawan Contoh Sembilan', 99000009, 'Asisten Pemupukan', 'IIIA/02', ''],
+        ];
+
+        $result = $this->reader()->read($this->workbook($rows), 'Bez Mei 2025.xls');
+
+        // The NIK is kept so the planner knows the person is listed that month.
+        $this->assertSame([['row' => 4, 'code' => 'jabatan_tidak_valid', 'nik' => '99000008']], $result['issues']);
+        $this->assertSame(['99000009'], array_column($result['rows'], 'nik'));
+        $this->assertArrayHasKey('jabatan_tidak_valid', BezettingWorkbookReader::ISSUE_LABELS);
+    }
+
     public function test_period_falls_back_to_the_file_name_with_a_warning(): void
     {
         $rows = $this->columnLayout();
@@ -181,7 +199,7 @@ class BezettingWorkbookReaderTest extends TestCase
             $this->reader()->read($this->workbook($rows), 'Bez Mei 2025.xls');
             $this->fail('Expected a read exception');
         } catch (BezettingReadException $e) {
-            $this->assertStringContainsString('golongan, tanggal_dalam_jabatan', $e->getMessage());
+            $this->assertStringContainsString('golongan', $e->getMessage());
             $this->assertStringNotContainsString('99000006', $e->getMessage());
             $this->assertStringNotContainsString('Karyawan Contoh', $e->getMessage());
         }
@@ -199,6 +217,108 @@ class BezettingWorkbookReaderTest extends TestCase
     {
         $this->assertSame('2025-12', BezettingWorkbookReader::periodFromText('PER DESEMBER 2025'));
         $this->assertSame('2026-05', BezettingWorkbookReader::periodFromText('Bez Mei 2026.xls'));
+        $this->assertSame('2024-02', BezettingWorkbookReader::periodFromText('Bez Febuari 2024.xls'));
         $this->assertNull(BezettingWorkbookReader::periodFromText('Bezetting terbaru'));
+    }
+
+    public function test_reads_era_2_nik_sap_and_nik_ptpn13_dual_columns(): void
+    {
+        $rows = [
+            ['PER OKTOBER 2022'],
+            ['NO', 'N A M A', 'NIK SAP', 'NIK PTPN XIII', 'JABATAN', 'GOL', 'TGL. DALAM JABATAN', 'TMT DI BAGIAN/ UNIT KERJA'],
+            ['', 'BAGIAN TANAMAN'],
+            [1, 'Karyawan Era Dua', 99000010, '000.0716.1234.5678', 'Asisten Tanaman', 'IIIC/02', $this->serial('2021-03-01'), $this->serial('2020-01-01')],
+        ];
+
+        $result = $this->reader()->read($this->workbook($rows), 'Bez Oktober 2022.xls');
+
+        $this->assertSame('2022-10', $result['period']);
+        $this->assertCount(1, $result['rows']);
+        $this->assertSame('99000010', $result['rows'][0]['nik']);
+        $this->assertFalse($result['rows'][0]['is_legacy_nik']);
+        $this->assertSame(\App\Models\BezettingLegacyNikMap::hashFromRaw('000.0716.1234.5678'), $result['rows'][0]['legacy_nik_hash']);
+        $this->assertStringNotContainsString('000.0716', json_encode($result['rows']));
+    }
+
+    public function test_reads_era_1_unlabelled_adjacent_legacy_column(): void
+    {
+        $rows = [
+            ['PER FEBRUARI 2023'],
+            ['NO', 'N A M A', 'NIK', '', 'JABATAN', 'GOL', 'TGL. DALAM JABATAN'],
+            ['', 'BAGIAN TANAMAN'],
+            [1, 'Karyawan Era Satu', 99000011, '000.0716.9999.1111', 'Asisten Tanaman', 'IIIC/02', $this->serial('2021-03-01')],
+        ];
+
+        $result = $this->reader()->read($this->workbook($rows), 'Bez Februari 2023.xls');
+
+        $this->assertCount(1, $result['rows']);
+        $this->assertSame('99000011', $result['rows'][0]['nik']);
+        $this->assertFalse($result['rows'][0]['is_legacy_nik']);
+        $this->assertSame(\App\Models\BezettingLegacyNikMap::hashFromRaw('000.0716.9999.1111'), $result['rows'][0]['legacy_nik_hash']);
+    }
+
+    public function test_reads_era_3_legacy_only_nik_column(): void
+    {
+        $rows = [
+            ['PER AGUSTUS 2015'],
+            ['NO', 'N A M A', 'NIK', 'JABATAN', 'GOL', 'TGL. DALAM JABATAN'],
+            ['', 'BAGIAN TANAMAN'],
+            [1, 'Karyawan Era Tiga', '000.0716.1234.5678', 'Asisten Tanaman', 'IIIB/01', $this->serial('2014-05-01')],
+        ];
+
+        $result = $this->reader()->read($this->workbook($rows), 'Bez Agustus 2015.xls');
+
+        $this->assertSame([], $result['issues']);
+        $this->assertCount(1, $result['rows']);
+        $this->assertSame('', $result['rows'][0]['nik']);
+        $this->assertTrue($result['rows'][0]['is_legacy_nik']);
+        $this->assertSame(\App\Models\BezettingLegacyNikMap::hashFromRaw('000.0716.1234.5678'), $result['rows'][0]['legacy_nik_hash']);
+    }
+
+    public function test_reads_era_4_2012_three_row_header_col2_unit_headings_and_missing_tgl_jabatan(): void
+    {
+        $rows = [
+            ['PER JANUARI 2012'],
+            ['', '', '', '', '', 'Masa Kerja'],
+            ['No.', 'Nomor Induk', 'N a m a', 'Gol', 'Jabatan', 'Di Unit Kerja'],
+            ['', 'Karyawan', '', '2012', '', 'TMT'],
+            [1, 2, 3, 4, 5, 6],
+            ['', 'BAGIAN TANAMAN'],
+            [1, '000.0716.1234.5678', 'Karyawan Era Empat', 'IIIA/01', 'Asisten Afdeling I', $this->serial('2011-02-01')],
+            [2, '', 'Karyawan Tanpa NIK', 'IIIA/01', 'Asisten Afdeling II', $this->serial('2011-02-01')],
+        ];
+
+        $result = $this->reader()->read($this->workbook($rows), 'Bez Januari 2012.xls');
+
+        $this->assertCount(1, $result['rows']);
+        $this->assertSame('BAGIAN TANAMAN', $result['rows'][0]['unit']);
+        $this->assertTrue($result['rows'][0]['is_legacy_nik']);
+        $this->assertNull($result['rows'][0]['tanggal_dalam_jabatan']);
+        $this->assertSame('2011-02-01', $result['rows'][0]['tmt_unit_kerja']);
+        $this->assertSame([['row' => 8, 'code' => 'nik_kosong']], $result['issues']);
+        $this->assertNotEmpty(array_filter($result['warnings'], fn ($w) => str_contains($w, 'Tgl. Dalam Jabatan')));
+    }
+
+    public function test_resolves_period_discrepancy_when_filename_and_sheet_name_agree_and_rejects_otherwise(): void
+    {
+        $rows = [
+            ['PER OKTOBER 2024'],
+            ['NO', 'N A M A', 'NIK', 'JABATAN', 'GOL', 'TGL. DALAM JABATAN'],
+            ['', 'BAGIAN TANAMAN'],
+            [1, 'Karyawan Sep', 99000012, 'Asisten Tanaman', 'IIIC/01', $this->serial('2023-01-01')],
+        ];
+
+        $book = new Spreadsheet;
+        $sheet = $book->getActiveSheet();
+        $sheet->setTitle('Bez September 2024');
+        $sheet->fromArray($rows, null, 'A1', true);
+        $path = tempnam(sys_get_temp_dir(), 'bez').'.xlsx';
+        (new Xlsx($book))->save($path);
+        $this->files[] = $path;
+
+        $result = $this->reader()->read($path, 'Bez September 2024.xls');
+
+        $this->assertSame('2024-09', $result['period']);
+        $this->assertNotEmpty(array_filter($result['warnings'], fn ($w) => str_contains($w, '2024-10') && str_contains($w, '2024-09')));
     }
 }
