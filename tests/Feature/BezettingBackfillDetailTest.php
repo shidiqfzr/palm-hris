@@ -274,4 +274,17 @@ class BezettingBackfillDetailTest extends TestCase
             ->call('keepUnmatched');
         $this->assertSame($countBefore, BezettingNameMapping::count());
     }
+
+    public function test_completed_run_shows_status_aware_subtitle_and_omits_redundant_sticky_decision_bar(): void
+    {
+        $run = $this->stagedBezettingRun($this->maker);
+        Livewire::actingAs($this->maker)->test(BezettingBackfillDetail::class, ['run' => $run])->call('submit');
+        Livewire::actingAs($this->checker)->test(BezettingBackfillDetail::class, ['run' => $run->fresh()])->call('approve');
+
+        $this->actingAs($this->maker)->get(route('admin.employees.bezetting.show', $run->fresh()))
+            ->assertOk()
+            ->assertSee('Rekonstruksi telah disetujui dan tersimpan.')
+            ->assertDontSee('lalu ajukan untuk disetujui admin lain')
+            ->assertDontSee('Keputusan:');
+    }
 }
