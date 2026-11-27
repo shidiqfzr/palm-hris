@@ -37,7 +37,6 @@
     <x-admin.table.card>
         <x-admin.table.header title="Proses Rekonstruksi" :paginator="$runs" noun="Proses" />
         <div class="relative overflow-x-auto">
-            <x-admin.table.skeleton target="perPage,gotoPage,nextPage,previousPage" :rows="5" :columns="7" />
             <table class="w-full text-left border-collapse text-xs">
                 <thead class="bg-surface-50">
                     <tr class="border-b border-surface-200">
@@ -50,7 +49,8 @@
                         <x-admin.table.th class="text-right">Aksi</x-admin.table.th>
                     </tr>
                 </thead>
-                <tbody class="divide-y divide-surface-100 text-surface-800">
+                <x-admin.table.skeleton target="perPage,gotoPage,nextPage,previousPage" :rows="5" :columns="7" />
+                <tbody class="divide-y divide-surface-100 text-surface-800" wire:loading.delay.remove wire:target="perPage,gotoPage,nextPage,previousPage">
                     @forelse ($runs as $run)
                         <tr wire:key="run-{{ $run->id }}" class="hover:bg-surface-50/75 transition">
                             <td class="px-4 py-3 font-semibold text-surface-900 whitespace-nowrap">{{ $run->period_from }} s.d. {{ $run->period_to }}</td>

@@ -153,7 +153,6 @@
                 </div>
                 <x-admin.table.guide :guide="\App\Support\BezettingReviewGuide::names()" />
                 <div class="relative overflow-x-auto">
-                    <x-admin.table.skeleton target="kindFilter,decisionFilter,gotoPage,nextPage,previousPage" :rows="5" :columns="3" />
                     {{-- Fixed layout on desktop: the Muncul and Keputusan columns keep the same width and position whatever the names are, so the pickers line up on every page and filter. --}}
                     <table class="w-full text-left border-collapse text-xs lg:table-fixed">
                         <thead class="bg-surface-50">
@@ -163,7 +162,8 @@
                                 <x-admin.table.th class="min-w-[34rem] lg:w-[36rem]">Keputusan</x-admin.table.th>
                             </tr>
                         </thead>
-                        <tbody class="divide-y divide-surface-100 text-surface-800">
+                        <x-admin.table.skeleton target="kindFilter,decisionFilter,gotoPage,nextPage,previousPage" :rows="5" :columns="3" />
+                        <tbody class="divide-y divide-surface-100 text-surface-800" wire:loading.delay.remove wire:target="kindFilter,decisionFilter,gotoPage,nextPage,previousPage">
                             @forelse ($blocking as $item)
                                 <tr wire:key="name-{{ $item['key'] }}-{{ $item['decision'] ?? 'open' }}" class="hover:bg-surface-50/75 transition">
                                     <td class="px-4 py-2.5">
