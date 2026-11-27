@@ -30,7 +30,9 @@ return [
     */
     'bezetting' => [
         'staging_retention_days' => (int) env('HRIS_BEZETTING_STAGING_RETENTION_DAYS', 30),
-        'max_files' => 24,
+        // Follow-up worklist of a saved run (NIK and month only, encrypted): time for HR to finish the Mutasi follow-up.
+        'followup_retention_days' => (int) env('HRIS_BEZETTING_FOLLOWUP_RETENTION_DAYS', 90),
+        'max_files' => 12,
         'max_file_kb' => 10240,
     ],
 

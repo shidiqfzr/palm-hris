@@ -73,7 +73,7 @@ class BezettingBackfillService
         $this->authorize($maker);
 
         try {
-            $max = (int) config('hris.bezetting.max_files', 24);
+            $max = (int) config('hris.bezetting.max_files', 12);
             if ($files === [] || count($files) > $max) {
                 throw new ImportAbortedException("Unggah 1 sampai {$max} berkas Bezetting dalam satu proses.");
             }

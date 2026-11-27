@@ -34,6 +34,23 @@ class BezettingBackfillIndexTest extends TestCase
             ->assertDontSee('SSOT');
     }
 
+    public function test_the_page_teaches_how_many_files_to_upload_and_the_whole_workflow(): void
+    {
+        $admin = User::factory()->create(['role' => 'admin']);
+
+        $this->actingAs($admin)->get(route('admin.employees.bezetting.index'))
+            ->assertOk()
+            ->assertSee('Sebelum mengunggah')
+            ->assertSee('paling banyak '.config('hris.bezetting.max_files').' berkas')
+            ->assertSee('Bulan berurutan')
+            ->assertSee('Mulai dari yang terbaru')
+            ->assertSee('Alur kerja Rekonstruksi Riwayat Karir')
+            ->assertSee('Persetujuan admin lain')
+            ->assertSee('bukan SK mutasi')
+            ->assertDontSee('DOMAIN.md')
+            ->assertDontSee('SSOT');
+    }
+
     public function test_uploading_workbooks_stages_a_run_and_opens_it(): void
     {
         $admin = User::factory()->create(['role' => 'admin']);
@@ -103,5 +120,24 @@ class BezettingBackfillIndexTest extends TestCase
     public function test_an_account_without_the_import_permission_cannot_open_the_page(): void
     {
         $this->actingAs(User::factory()->create(['role' => 'user']))->get(route('admin.employees.bezetting.index'))->assertForbidden();
+    }
+
+    public function test_uploading_more_than_12_files_is_rejected_and_upload_guidance_is_visible(): void
+    {
+        $admin = User::factory()->create(['role' => 'admin']);
+
+        $this->assertSame(12, config('hris.bezetting.max_files'));
+
+        $this->actingAs($admin)->get(route('admin.employees.bezetting.index'))
+            ->assertOk()
+            ->assertSee('maksimal 12 berkas (1 tahun per proses)')
+            ->assertSee('Mulailah dari tahun terbaru');
+
+        $thirteen = array_map(fn (int $i) => UploadedFile::fake()->create("Bez {$i}.xlsx", 10, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'), range(1, 13));
+
+        Livewire::actingAs($admin)->test(BezettingBackfillIndex::class)
+            ->set('files', $thirteen)
+            ->call('stage')
+            ->assertHasErrors(['files' => 'max']);
     }
 }

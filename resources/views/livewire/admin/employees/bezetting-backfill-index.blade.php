@@ -11,20 +11,28 @@
         <div>
             <h2 id="upload-title" class="text-base font-bold text-surface-900">Unggah Bezetting Bulanan</h2>
             <p class="mt-1 text-sm text-surface-600 leading-relaxed">
-                Unggah berkas asli apa adanya, satu berkas per bulan (paling banyak {{ $maxFiles }} berkas). Hanya kolom yang diperlukan riwayat yang dibaca;
-                agama, pendidikan, status keluarga, dan NIK SAP lama tidak dibaca. Berkas dihapus dari server segera setelah dibaca.
+                Unggah berkas asli apa adanya, satu berkas per bulan — <strong>maksimal {{ $maxFiles }} berkas (1 tahun per proses)</strong>.
+                Mulailah dari tahun terbaru (misalnya 2026, lalu mundur ke 2025, 2024, dan seterusnya hingga 2012) agar nomor induk lama tertaut otomatis.
+                Hanya kolom yang diperlukan riwayat yang dibaca; agama, pendidikan, status keluarga, dan tempat lahir tidak dibaca. Berkas dihapus dari server segera setelah dibaca.
             </p>
         </div>
-        <form wire:submit="stage" class="space-y-4">
+        <form wire:submit="stage">
+            {{-- "Baca Berkas" sits on the same row as the field it acts on (shared file-upload action slot). --}}
             <x-admin.file-upload wire-model="files" id="bezetting-files" :file="$files" :multiple="true"
-                label="Berkas Bezetting" helper="(.xls atau .xlsx, maks. 10 MB per berkas)" accept=".xls,.xlsx"
+                label="Berkas Bezetting" helper="(.xls atau .xlsx, maks. {{ $maxFiles }} berkas / 1 tahun, maks. 10 MB per berkas)" accept=".xls,.xlsx"
                 error-key="files" icon="fas fa-file-excel" icon-active="text-primary-600"
-                empty-text="Belum ada berkas dipilih" button-text="Pilih Berkas" change-button-text="Ganti Berkas" />
-            <div class="flex justify-end">
-                <x-admin.button type="submit" icon="fas fa-magnifying-glass-chart" target="stage">Baca Berkas</x-admin.button>
-            </div>
+                empty-text="Belum ada berkas dipilih" button-text="Pilih Berkas" change-button-text="Ganti Berkas">
+                <x-slot:action>
+                    <x-admin.button type="submit" icon="fas fa-magnifying-glass-chart" target="stage">Baca Berkas</x-admin.button>
+                </x-slot:action>
+            </x-admin.file-upload>
         </form>
+        {{-- Practical advice on how many files and in what order (shared guide, collapsible). --}}
+        <div class="border-t border-surface-200 pt-1 [&>details]:bg-transparent [&>details]:px-0 [&>details]:border-b-0">
+            <x-admin.table.guide :guide="\App\Support\BezettingReviewGuide::upload($maxFiles)" />
+        </div>
     </section>
+
 
     <x-admin.table.card>
         <x-admin.table.header title="Proses Rekonstruksi" :paginator="$runs" noun="Proses" />
@@ -62,4 +70,8 @@
         </div>
         <x-admin.table.pagination :paginator="$runs" noun="proses" />
     </x-admin.table.card>
+
+    <section class="bg-white rounded-2xl border border-surface-200/80 shadow-xs overflow-hidden [&>details]:border-b-0" aria-label="Alur kerja">
+        <x-admin.table.guide :guide="\App\Support\BezettingReviewGuide::workflow($approvalTtlDays, $undoWindowDays)" />
+    </section>
 </div>

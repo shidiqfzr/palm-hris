@@ -51,7 +51,7 @@ class BezettingBackfillIndex extends Component
     public function stage(BezettingBackfillService $service)
     {
         $this->authorizeImport();
-        $max = (int) config('hris.bezetting.max_files', 24);
+        $max = (int) config('hris.bezetting.max_files', 12);
         $kb = (int) config('hris.bezetting.max_file_kb', 10240);
 
         // Livewire detects the type from the first 64 KB of the temporary file. Binary .xls workbooks (the format of the
@@ -101,7 +101,7 @@ class BezettingBackfillIndex extends Component
                 ->paginate(in_array($this->perPage, array_map('intval', config('hris.pagination.options')), true) ? $this->perPage : 10),
             'undoWindowDays' => (int) config('hris.import.undo_window_days', 7),
             'approvalTtlDays' => (int) config('hris.import.approval_ttl_days', 7),
-            'maxFiles' => (int) config('hris.bezetting.max_files', 24),
+            'maxFiles' => (int) config('hris.bezetting.max_files', 12),
         ]);
     }
 
