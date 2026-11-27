@@ -54,7 +54,8 @@ class JobHistory extends Model
      * `bezetting` tidak pernah memiliki `jenis_mutasi` (DOMAIN.md §2.2).
      */
     public const JENIS_PERUBAHAN_LABELS = [
-        'PENEMPATAN_AWAL' => 'Penempatan Awal',
+        // First month the person is seen in the uploaded files: not a hiring or first placement, which happened earlier.
+        'PENEMPATAN_AWAL' => 'Awal Data Bezetting',
         'PERUBAHAN_JABATAN' => 'Perubahan Jabatan',
         'PERUBAHAN_UNIT' => 'Perubahan Unit Kerja',
         'PERUBAHAN_STATUS' => 'Perubahan Status Penugasan',
@@ -111,6 +112,65 @@ class JobHistory extends Model
     public function isRecordOnly(): bool
     {
         return $this->sumber !== self::SUMBER_MUTASI;
+    }
+
+    /**
+     * Bulan berkas Bezetting tempat riwayat ini pertama kali terbaca, mis. "Bez Feb 2026".
+     * Diambil dari catatan yang ditulis proses rekonstruksi; null untuk sumber lain.
+     */
+    public function getBerkasBezettingLabelAttribute(): ?string
+    {
+        if ($this->sumber !== self::SUMBER_BEZETTING) {
+            return null;
+        }
+
+        return self::berkasLabel($this->catatan);
+    }
+
+    /** "Direkonstruksi dari Bezetting Januari 2026 (bukan SK mutasi)" → "Bez Jan 2026"; null bila catatan bukan dari rekonstruksi. */
+    public static function berkasLabel(?string $catatan): ?string
+    {
+        return preg_match('/Bezetting ([A-Za-z]+) (\d{4})/u', (string) $catatan, $m) === 1 ? 'Bez '.mb_substr($m[1], 0, 3).' '.$m[2] : null;
+    }
+
+    /**
+     * Bagian teks berkas Bezetting yang menjadi sumber baris ini sendiri. Sel jabatan berkas dapat memuat jabatan utama dan
+     * tugas rangkap sekaligus ("Jabatan (merangkap Plt. Jabatan lain tmt ...) | Unit"): baris utama menampilkan bagian utamanya,
+     * baris tugas rangkap menampilkan bagian "merangkap" saja. Teks lengkap tetap ada pada atribut teks_sumber.
+     */
+    public function getTeksSumberBarisAttribute(): ?string
+    {
+        if ($this->sumber !== self::SUMBER_BEZETTING) {
+            return null;
+        }
+
+        return self::teksBerkasBaris($this->teks_sumber, $this->jenis_perubahan_terdeteksi);
+    }
+
+    /** The same split for a row that is not a model yet (the rebuild preview); $jenis is the detected-change code. */
+    public static function teksBerkasBaris(?string $teks, ?string $jenis): ?string
+    {
+        if (blank($teks)) {
+            return null;
+        }
+
+        $full = (string) $teks;
+        $cut = strrpos($full, ' | ');
+        $jabatan = $cut === false ? $full : substr($full, 0, $cut);
+        $unit = $cut === false ? '' : substr($full, $cut + 3);
+
+        // "Jabatan (Plt. Jabatan lain tmt ...)" is the same concurrent duty written in brackets (as PositionTextInterpreter reads it).
+        $jabatan = (string) preg_replace('/\s*\(\s*((?:plt|pjs|pj)\b\.?\s+[^()]+?)\s*\)\s*$/iu', ' merangkap $1', trim($jabatan));
+        $parts = preg_split('/\s*\(?\s*\bmerangkap\b\s*/iu', $jabatan, 2) ?: [$jabatan];
+        if (count($parts) < 2) {
+            return $full;
+        }
+
+        $text = $jenis === 'TUGAS_RANGKAP'
+            ? 'merangkap '.trim(rtrim(trim($parts[1]), ')'))
+            : trim($parts[0]);
+
+        return trim($text.($unit !== '' ? ' | '.$unit : ''));
     }
 
     /** Label sumber dengan istilah bisnis. */

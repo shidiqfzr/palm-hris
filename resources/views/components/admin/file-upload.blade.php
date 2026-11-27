@@ -2,6 +2,8 @@
     Isian unggah berkas berbasis Livewire (DESIGN.md §6.1). multiple: true menerima beberapa berkas sekaligus (properti
     Livewire berupa array); nama berkas tampil bila satu, jumlah berkas bila lebih dari satu (daftar lengkap pada title).
     Galat per berkas (mis. files.0) ditampilkan lewat errorKey berpola "files.*".
+    Slot opsional `action`: tombol aksi formulir (mis. "Baca Berkas") yang sebaris dan setinggi kotak isian pada layar lebar,
+    di bawahnya pada ponsel; galat tetap di bawah kotak.
 --}}
 @props([
     'wireModel' => 'fileSk',
@@ -38,7 +40,8 @@
         </label>
     @endif
 
-    <div class="relative w-full">
+    <div class="{{ isset($action) ? 'flex flex-col sm:flex-row sm:items-stretch gap-3' : '' }}">
+    <div class="relative w-full {{ isset($action) ? 'sm:flex-1 min-w-0' : '' }}">
         {{-- Ikon Kiri Statis: Posisi absolut inset-y-0 left-0 pl-3.5 persis 1:1 dengan input standar --}}
         <div class="pointer-events-none absolute inset-y-0 left-0 pl-3.5 flex items-center text-surface-500 z-10">
             <i class="{{ $icon }} text-xs {{ $hasFile ? $iconActive : 'text-surface-400' }}" aria-hidden="true"></i>
@@ -79,6 +82,10 @@
                 <input type="file" wire:model="{{ $wireModel }}" accept="{{ $accept }}" id="{{ $id }}" class="sr-only" @if ($multiple) multiple @endif>
             </label>
         </div>
+    </div>
+    @isset($action)
+        <div class="flex justify-end sm:shrink-0 [&>*]:h-full [&>*]:min-h-[42px]">{{ $action }}</div>
+    @endisset
     </div>
 
     @foreach ($errorKeys as $key)

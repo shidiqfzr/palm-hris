@@ -213,6 +213,22 @@ class PensiunServiceTest extends TestCase
         $this->assertSame($admin->id, MasterAuditLog::where('action', 'employee.separated')->firstOrFail()->user_id);
     }
 
+    public function test_a_separated_employee_without_sk_gets_a_notice_and_a_dialog_instead_of_an_inline_form(): void
+    {
+        $admin = User::factory()->create(['role' => 'admin']);
+        $employee = $this->holder('1990-01-01');
+        $employee->forceFill(['tanggal_berhenti' => '2026-11-01', 'alasan_berhenti' => 'Pensiun', 'nomor_sk_berhenti' => null])->save();
+
+        $html = $this->actingAs($admin)->get(route('admin.employees.show', $employee))->assertOk()
+            ->assertSee('SK Pemberhentian belum dicatat.')
+            ->assertSee('Catat SK Pemberhentian')
+            ->getContent();
+        $this->assertStringNotContainsString('class="flex items-end gap-2"', $html, 'the SK fields no longer sit in the header row');
+
+        $employee->forceFill(['nomor_sk_berhenti' => 'SK-9/2026'])->save();
+        $this->actingAs($admin)->get(route('admin.employees.show', $employee))->assertDontSee('SK Pemberhentian belum dicatat.');
+    }
+
     public function test_separation_refuses_a_future_effective_date_so_nothing_changes_early(): void
     {
         $admin = User::factory()->create(['role' => 'admin']);

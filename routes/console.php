@@ -29,8 +29,8 @@ Artisan::command('hris:purge-import-governance', function (EmployeeImportGoverna
 
 Artisan::command('hris:purge-bezetting-backfill', function (BezettingBackfillService $backfill) {
     $result = $backfill->purge();
-    $this->info("Rekonstruksi Bezetting kedaluwarsa: {$result['expired']}; data berkas dihapus: {$result['purged']}.");
-})->purpose('Menandai pengajuan rekonstruksi riwayat Bezetting kedaluwarsa dan menghapus data berkas yang tidak diperlukan lagi (UU PDP Compliance)');
+    $this->info("Rekonstruksi Bezetting kedaluwarsa: {$result['expired']}; data berkas dihapus: {$result['purged']}; daftar tindak lanjut dihapus: {$result['followups_purged']}.");
+})->purpose('Menandai pengajuan rekonstruksi riwayat Bezetting kedaluwarsa dan menghapus data berkas serta daftar tindak lanjut yang tidak diperlukan lagi (UU PDP Compliance)');
 
 Artisan::command('hris:mpp-capture-period {--year= : Tahun periode (default: bulan sebelumnya)} {--month= : Bulan periode 1-12 (default: bulan sebelumnya)}', function (MppPeriodService $periods, ManPowerPlanningService $planning) {
     $default = now()->startOfMonth()->subMonth();

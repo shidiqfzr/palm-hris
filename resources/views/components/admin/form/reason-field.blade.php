@@ -14,6 +14,7 @@
     'hint' => 'Alasan dicatat pada riwayat perubahan data.',
     'rows' => 3,
     'nativeValidation' => true, // false bila validasi dilakukan komponen Livewire
+    'value' => '', // isi awal pada form halaman, mis. old('alasan') setelah galat validasi
 ])
 
 @php
@@ -31,7 +32,7 @@
         @if($nativeValidation) required aria-required="true" minlength="{{ EmployeeDeletionService::REASON_MIN_LENGTH }}" @endif
         placeholder="{{ $placeholder }}"
         @error($fieldName) aria-invalid="true" aria-describedby="{{ $id }}-error" @enderror
-        {{ $attributes->merge(['class' => 'w-full rounded-lg border border-surface-300 px-3 py-2 text-sm text-surface-900 placeholder:text-surface-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500']) }}></textarea>
+        {{ $attributes->merge(['class' => 'w-full rounded-lg border border-surface-300 px-3 py-2 text-sm text-surface-900 placeholder:text-surface-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500']) }}>{{ $value }}</textarea>
     <p class="mt-1 text-[11px] text-surface-500">{{ $hint }}</p>
     @error($fieldName)
         <p id="{{ $id }}-error" class="text-danger-700 text-sm mt-1">{{ $message }}</p>

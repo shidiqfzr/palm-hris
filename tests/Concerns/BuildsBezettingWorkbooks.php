@@ -56,7 +56,7 @@ trait BuildsBezettingWorkbooks
             Position::factory()->create(['nama' => $position]);
         }
 
-        return Employee::factory()->create([
+        return Employee::factory()->create(['tmt_bekerja' => '2000-01-01',
             'nik' => '99000001', 'jabatan' => 'Manajer Kebun', 'unit_kerja' => 'Kebun Parindu',
             'tanggal_dalam_jabatan' => '2025-03-01', 'tmt_unit_kerja' => '2025-03-01',
         ]);

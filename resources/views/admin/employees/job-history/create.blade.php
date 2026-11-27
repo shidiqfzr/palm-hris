@@ -1,160 +1,21 @@
 @extends('layouts.admin')
 
 @section('content')
-    <div class="max-w-5xl mx-auto">
-        <!-- Header -->
-        <div class="bg-white rounded-xl shadow-sm border border-surface-200 overflow-hidden">
-            <div class="px-6 py-4 bg-gradient-to-r from-primary-600 to-primary-700">
-                <!-- Header Content -->
-                <div class="relative">
-                    <!-- Main Title -->
-                    <div class="flex items-start justify-between">
-                        <div class="flex items-center">
-                            <div
-                                class="flex items-center justify-center w-12 h-12 bg-white/20 rounded-xl mr-4 backdrop-blur-sm">
-                                <i class="fas fa-briefcase text-white text-xl" aria-hidden="true"></i>
-                            </div>
-                            <div>
-                                <h1 class="text-white text-2xl sm:text-3xl font-bold leading-tight">
-                                    Tambah Riwayat Jabatan
-                                </h1>
-                                <p class="text-primary-100 text-sm mt-1 flex items-center">
-                                    <i class="fas fa-user mr-2 opacity-70" aria-hidden="true"></i>
-                                    <span class="font-medium">{{ $employee->nama }}</span>
-                                    <span class="mx-2 opacity-50">•</span>
-                                    <span class="opacity-80 font-mono">{{ $employee->nik }}</span>
-                                </p>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
+<div class="space-y-6 max-w-5xl mx-auto">
+    <x-admin.page-header
+        title="Tambah Riwayat Jabatan"
+        subtitle="{{ $employee->nama }} · Lengkapi riwayat jabatan yang sudah selesai"
+        icon="fas fa-briefcase"
+        :breadcrumbs="[
+            ['label' => 'Core HR'],
+            ['label' => 'Karyawan', 'url' => route('admin.employees.index')],
+            ['label' => $employee->nama, 'url' => route('admin.employees.show', $employee->nik)],
+            ['label' => 'Tambah Riwayat Jabatan'],
+        ]"
+        back-url="{{ route('admin.employees.show', $employee->nik) }}#riwayat-jabatan"
+        back-label="Kembali ke Profil"
+    />
 
-            <!-- Errors -->
-            @if ($errors->any())
-                <div class="px-6 pt-4">
-                    <div role="alert" class="rounded-lg border border-danger-200 bg-danger-50 p-4 text-sm text-danger-800">
-                        <div class="font-semibold mb-2 flex items-center">
-                            <i class="fas fa-exclamation-circle mr-2" aria-hidden="true"></i> Periksa kembali input Anda:
-                        </div>
-                        <ul class="list-disc pl-5 space-y-1">
-                            @foreach ($errors->all() as $err)
-                                <li>{{ $err }}</li>
-                            @endforeach
-                        </ul>
-                    </div>
-                </div>
-            @endif
-
-            <!-- Form -->
-            <form method="POST" action="{{ route('admin.employees.job-history.store', $employee) }}" class="p-6">
-                @csrf
-
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <!-- Jabatan -->
-                    <div>
-                        <label class="block text-sm font-medium text-surface-700 mb-1">Jabatan <span
-                                class="text-danger">*</span></label>
-                        <input type="text" name="jabatan" value="{{ old('jabatan') }}"
-                            class="w-full px-4 py-2.5 border rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 placeholder-surface-400"
-                            placeholder="Contoh: Asisten/Manajer" required>
-                    </div>
-
-                    <!-- Unit Kerja -->
-                    <div>
-                        <label class="block text-sm font-medium text-surface-700 mb-1">Unit Kerja <span
-                                class="text-danger">*</span></label>
-                        <input type="text" name="unit_kerja" value="{{ old('unit_kerja') }}"
-                            class="w-full px-4 py-2.5 border rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 placeholder-surface-400"
-                            placeholder="Contoh: Regional V / PKS XYZ" required>
-                    </div>
-
-                    <!-- Level -->
-                    <div>
-                        <label class="block text-sm font-medium text-surface-700 mb-1">Level</label>
-                        <input type="text" name="level" value="{{ old('level') }}"
-                            class="w-full px-4 py-2.5 border rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 placeholder-surface-400"
-                            placeholder="Contoh: Supervisor/Assistant Manager">
-                    </div>
-
-                    <!-- Golongan -->
-                    <div>
-                        <label class="block text-sm font-medium text-surface-700 mb-1">Golongan</label>
-                        <input type="text" name="golongan" value="{{ old('golongan') }}"
-                            class="w-full px-4 py-2.5 border rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 placeholder-surface-400"
-                            placeholder="Contoh: IIIA/IIIB">
-                    </div>
-
-                    <!-- TMT Awal -->
-                    <div>
-                        <label class="block text-sm font-medium text-surface-700 mb-1">TMT Awal <span
-                                class="text-danger">*</span></label>
-                        <input type="date" name="tmt_awal" value="{{ old('tmt_awal') }}"
-                            class="w-full px-4 py-2.5 border rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
-                            required>
-                    </div>
-
-                    <!-- TMT Akhir -->
-                    <div>
-                        <label class="block text-sm font-medium text-surface-700 mb-1">TMT Akhir</label>
-                        <input type="date" name="tmt_akhir" value="{{ old('tmt_akhir') }}"
-                            class="w-full px-4 py-2.5 border rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500">
-                        <p class="text-xs text-surface-500 mt-1">Kosongkan jika jabatan ini masih aktif.</p>
-                    </div>
-
-                    <!-- Jenis Mutasi -->
-                    <div>
-                        <label class="block text-sm font-medium text-surface-700 mb-1">Jenis Mutasi</label>
-                        <select name="jenis_mutasi"
-                            class="w-full px-4 py-2.5 border rounded-lg bg-white focus:ring-2 focus:ring-primary-500 focus:border-primary-500">
-                            <option value="">— Pilih Jenis Mutasi —</option>
-                            @foreach ($mutasiOptions as $opt)
-                                <option value="{{ $opt }}" {{ old('jenis_mutasi') === $opt ? 'selected' : '' }}>
-                                    {{ \Illuminate\Support\Str::of($opt)->replace('_', ' ')->title() }}
-                                </option>
-                            @endforeach
-                        </select>
-                        @error('jenis_mutasi')
-                            <p class="text-xs text-danger mt-1">{{ $message }}</p>
-                        @enderror
-                    </div>
-
-                    <!-- Nomor SK -->
-                    <div>
-                        <label class="block text-sm font-medium text-surface-700 mb-1">Nomor SK</label>
-                        <input type="text" name="nomor_sk" value="{{ old('nomor_sk') }}"
-                            class="w-full px-4 py-2.5 border rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 placeholder-surface-400"
-                            placeholder="Contoh: SK-123/HRD/2025">
-                    </div>
-
-                    <!-- Tanggal SK -->
-                    <div>
-                        <label class="block text-sm font-medium text-surface-700 mb-1">Tanggal SK</label>
-                        <input type="date" name="tanggal_sk" value="{{ old('tanggal_sk') }}"
-                            class="w-full px-4 py-2.5 border rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500">
-                    </div>
-
-                    <!-- Catatan -->
-                    <div class="md:col-span-2">
-                        <label class="block text-sm font-medium text-surface-700 mb-1">Catatan</label>
-                        <textarea name="catatan" rows="4"
-                            class="w-full px-4 py-2.5 border rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 placeholder-surface-400"
-                            placeholder="Catatan tambahan...">{{ old('catatan') }}</textarea>
-                    </div>
-                </div>
-
-                <!-- Actions -->
-                <div class="mt-6 flex items-center gap-2">
-                    <a href="{{ route('admin.employees.show', $employee) }}"
-                        class="inline-flex items-center px-4 py-2 rounded-lg border border-surface-300 text-surface-700 hover:bg-surface-50 transition">
-                        <i class="fas fa-arrow-left mr-2" aria-hidden="true"></i> Kembali
-                    </a>
-                    <button type="submit"
-                        class="inline-flex items-center px-4 py-2 rounded-lg bg-primary-600 text-white font-medium hover:bg-primary-700 transition">
-                        <i class="fas fa-save mr-2" aria-hidden="true"></i> Simpan
-                    </button>
-                </div>
-            </form>
-        </div>
-    </div>
+    @include('admin.employees.job-history.form')
+</div>
 @endsection

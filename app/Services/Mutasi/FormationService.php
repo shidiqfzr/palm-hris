@@ -246,6 +246,21 @@ class FormationService
     }
 
     /**
+     * RM band of a position only when it is in the Master Formasi, never guessed from the title. For history rows, whose
+     * position text may be an old name kept as written (DOMAIN.md §5.5): no master position, no RM band.
+     */
+    public function masterPositionRm(string $jabatan): ?string
+    {
+        return Position::getAllCached()->get($jabatan)?->rm_level ?: null;
+    }
+
+    /** @return array<string, string> master position name → RM band, for positions that have one */
+    public function masterRmMap(): array
+    {
+        return Position::getAllCached()->filter(fn ($p) => $p->rm_level)->map(fn ($p) => (string) $p->rm_level)->all();
+    }
+
+    /**
      * Derive Karpim (RM-1..RM-3) vs Karpel (RM-4..RM-7) classification per DOMAIN.md §4.1.
      */
     public function deriveLevelForRm(string $rmLevel, ?string $fallback = null): ?string

@@ -15,6 +15,7 @@
         'rejected' => ['bg-surface-100 text-surface-600 border-surface-300', 'fa-ban'],
         'rolled_back' => ['bg-surface-100 text-surface-600 border-surface-300', 'fa-rotate-left'],
         'expired' => ['bg-surface-100 text-surface-600 border-surface-300', 'fa-hourglass-end'],
+        'withdrawn' => ['bg-surface-100 text-surface-600 border-surface-300', 'fa-xmark'],
         default => ['bg-surface-100 text-surface-600 border-surface-300', 'fa-circle'],
     };
 @endphp

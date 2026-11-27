@@ -20,7 +20,7 @@ class CareerHistoryDifferTest extends TestCase
             'golongan' => 'IIIC/02',
             'tanggal_dalam_jabatan' => '2023-04-01',
             'tmt_unit_kerja' => '2023-04-01',
-            'teks_sumber' => "{$unit} | {$jabatan}",
+            'teks_sumber' => "{$jabatan} | {$unit}",
         ], $extra);
     }
 

@@ -8,8 +8,9 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
  * Satu proses rekonstruksi riwayat karir dari Bezetting bulanan (DOMAIN.md §5.5). Siklus: staged → pending_approval →
- * completed → rolled_back; pending_approval → rejected / expired; staged → expired. `payload` terenkripsi dan
- * dikosongkan setelah tidak diperlukan lagi (SECURITY.md §4.4).
+ * completed → rolled_back; pending_approval → rejected / expired; staged / rejected → withdrawn (ditutup pengaju) or
+ * expired (tidak diajukan dalam masa simpan). `payload` terenkripsi dan dikosongkan setelah tidak diperlukan lagi
+ * (SECURITY.md §4.4).
  */
 class BezettingBackfillRun extends Model
 {
@@ -25,6 +26,8 @@ class BezettingBackfillRun extends Model
 
     public const STATUS_EXPIRED = 'expired';
 
+    public const STATUS_WITHDRAWN = 'withdrawn';
+
     public const STATUS_LABELS = [
         self::STATUS_STAGED => 'Ditinjau',
         self::STATUS_PENDING => 'Menunggu Persetujuan',
@@ -32,6 +35,7 @@ class BezettingBackfillRun extends Model
         self::STATUS_COMPLETED => 'Tersimpan',
         self::STATUS_ROLLED_BACK => 'Dibatalkan',
         self::STATUS_EXPIRED => 'Kedaluwarsa',
+        self::STATUS_WITHDRAWN => 'Ditutup',
     ];
 
     protected $fillable = [
@@ -55,6 +59,8 @@ class BezettingBackfillRun extends Model
         'rolled_back_by',
         'rollback_reason',
         'payload_purged_at',
+        'followups',
+        'followups_purged_at',
     ];
 
     protected $casts = [
@@ -66,11 +72,13 @@ class BezettingBackfillRun extends Model
         'committed_at' => 'datetime',
         'rolled_back_at' => 'datetime',
         'payload_purged_at' => 'datetime',
+        'followups' => 'encrypted:array',
+        'followups_purged_at' => 'datetime',
         'rows_written' => 'integer',
     ];
 
-    /** Payload is never serialized to arrays or JSON (it holds NIK, names and birth dates). */
-    protected $hidden = ['payload'];
+    /** Payload and follow-ups are never serialized to arrays or JSON (they hold NIKs; the payload also names and birth dates). */
+    protected $hidden = ['payload', 'followups'];
 
     public function maker(): BelongsTo
     {

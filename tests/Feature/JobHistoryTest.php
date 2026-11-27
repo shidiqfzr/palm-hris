@@ -29,7 +29,7 @@ class JobHistoryTest extends TestCase
             'is_applied' => true,
             'sumber' => JobHistory::SUMBER_BEZETTING,
             'jenis_perubahan_terdeteksi' => 'PENEMPATAN_AWAL',
-            'teks_sumber' => 'KEBUN INTI GUNUNG MELIAU (K.SAWIT) | Asisten Afdeling I',
+            'teks_sumber' => 'Asisten Afdeling I | KEBUN INTI GUNUNG MELIAU (K.SAWIT)',
         ], $overrides));
     }
 
@@ -42,7 +42,7 @@ class JobHistoryTest extends TestCase
         $this->assertNull($row->jenis_mutasi);
         $this->assertNull($row->nomor_sk);
         $this->assertNull($row->tanggal_sk);
-        $this->assertSame('Penempatan Awal', $row->jenis_perubahan_terdeteksi_label);
+        $this->assertSame('Awal Data Bezetting', $row->jenis_perubahan_terdeteksi_label, 'first month seen in the files, not a hiring');
     }
 
     public function test_source_filter_selects_bezetting_rows_and_the_official_view_excludes_them(): void
@@ -77,7 +77,7 @@ class JobHistoryTest extends TestCase
         $this->assertTrue($row->tmt_awal_diperkirakan);
         $this->assertTrue($row->backfillRun->is($run));
         $this->assertTrue($run->jobHistories()->whereKey($row->id)->exists());
-        $this->assertSame('KEBUN INTI GUNUNG MELIAU (K.SAWIT) | Asisten Afdeling I', $row->teks_sumber);
+        $this->assertSame('Asisten Afdeling I | KEBUN INTI GUNUNG MELIAU (K.SAWIT)', $row->teks_sumber);
     }
 
     public function test_other_sources_keep_their_defaults_for_the_new_fields(): void

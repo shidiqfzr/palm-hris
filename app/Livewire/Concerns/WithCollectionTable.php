@@ -40,17 +40,19 @@ trait WithCollectionTable
      * Mengiris koleksi ke halaman berjalan. Halaman diklem ke halaman terakhir yang ada (mis. setelah baris dihapus atau
      * filter dipersempit) dan disimpan, agar "Sebelumnya" dan "Berikutnya" bergerak dari halaman yang benar-benar tampil.
      *
+     * `$pageName` keeps two tables on one page apart (each its own query-string page).
+     *
      * @param  Collection<int, mixed>  $rows
      */
-    protected function paginateCollection(Collection $rows): LengthAwarePaginator
+    protected function paginateCollection(Collection $rows, string $pageName = 'page'): LengthAwarePaginator
     {
         $perPage = $this->normalisedPerPage();
-        $page = max(1, min($this->getPage(), (int) ceil($rows->count() / $perPage)));
+        $page = max(1, min($this->getPage($pageName), (int) ceil($rows->count() / $perPage)));
 
-        if ($page !== $this->getPage()) {
-            $this->setPage($page);
+        if ($page !== $this->getPage($pageName)) {
+            $this->setPage($page, $pageName);
         }
 
-        return new LengthAwarePaginator($rows->forPage($page, $perPage)->values(), $rows->count(), $perPage, $page);
+        return new LengthAwarePaginator($rows->forPage($page, $perPage)->values(), $rows->count(), $perPage, $page, ['pageName' => $pageName]);
     }
 }

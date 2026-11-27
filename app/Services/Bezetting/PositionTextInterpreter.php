@@ -9,7 +9,8 @@ use App\Services\Import\ConcurrentJobTextParser;
  * Splits a Bezetting position cell into the main position and its concurrent duties (DOMAIN.md §5.5 rule 6).
  *
  * "Asisten Manajemen Risiko merangkap Plt. Asisten Penggajian" → main "Asisten Manajemen Risiko" (Definitif) plus one
- * concurrent duty parsed by ConcurrentJobTextParser, the same rules Employee Import uses. A leading Plt/Pj/Pjs sets the
+ * concurrent duty parsed by ConcurrentJobTextParser, the same rules Employee Import uses. "(merangkap …)" and a trailing
+ * "(Plt. …)" read the same way, so no dangling bracket stays on the position name. A leading Plt/Pj/Pjs sets the
  * main status. Other leading phrases whose status is a business fact ("Penugasan sebagai …") are returned as a phrase
  * for an HR decision instead of being guessed.
  */
@@ -32,11 +33,22 @@ class PositionTextInterpreter
      */
     public function interpret(string $text, string $unit): array
     {
-        $parts = preg_split('/\s*\bmerangkap\b\s*/iu', trim($text)) ?: [''];
+        // "Jabatan (Plt. Kepala … tmt …)": a duty written in brackets without "merangkap" is the same concurrent duty.
+        // Brackets that belong to the post itself, such as "(Rayon Utara)", are left alone.
+        $text = (string) preg_replace('/\s*\(\s*((?:plt|pjs|pj)\b\.?\s+[^()]+?)\s*\)\s*$/iu', ' merangkap $1', trim($text));
+
+        // "Jabatan (merangkap …)": the opening bracket belongs to the separator, never to the position name.
+        $parts = preg_split('/\s*\(?\s*\bmerangkap\b\s*/iu', $text) ?: [''];
+        // "merangkap" in the middle of a longer bracketed note would leave a half-open bracket on the position: not guessed,
+        // the text stays whole and HR decides it as one name.
+        if (substr_count($parts[0], '(') > substr_count($parts[0], ')')) {
+            $parts = [$text];
+        }
         $main = $this->main(array_shift($parts));
 
         $concurrent = [];
         foreach ($parts as $part) {
+            $part = $this->withoutStrayClosingBracket($part);
             if (trim($part) === '') {
                 continue;
             }
@@ -53,6 +65,14 @@ class PositionTextInterpreter
         }
 
         return ['main' => $main, 'concurrent' => $concurrent];
+    }
+
+    /** The closing bracket of a "(merangkap …)" is left at the end of the duty text once its opening bracket became the separator. */
+    private function withoutStrayClosingBracket(string $part): string
+    {
+        $part = trim($part);
+
+        return str_ends_with($part, ')') && substr_count($part, '(') < substr_count($part, ')') ? rtrim(mb_substr($part, 0, -1)) : $part;
     }
 
     /** @return array{jabatan: string, status: ?string, status_phrase: ?string} */

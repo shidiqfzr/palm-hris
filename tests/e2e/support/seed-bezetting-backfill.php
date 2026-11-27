@@ -14,6 +14,8 @@ $unit = Unit::query()->orderBy('id')->value('nama');
 $jabatan = Position::query()->orderBy('id')->value('nama');
 
 Employee::factory()->create([
+    // A fixed hire date: a random one after the files' first month would exclude the person (history before the hire date).
+    'tmt_bekerja' => '2000-01-01',
     'nik' => '99000077', 'nama' => 'Karyawan Contoh Bezetting', 'jabatan' => $jabatan, 'unit_kerja' => $unit,
     'tanggal_dalam_jabatan' => '2025-03-01', 'tmt_unit_kerja' => '2025-03-01',
 ]);
@@ -25,6 +27,8 @@ foreach ([1 => 'JANUARI', 2 => 'FEBRUARI'] as $month => $name) {
         ['DAFTAR PERSONIL KARYAWAN PIMPINAN'], ["PER {$name} 2025"], [],
         ['NO', 'N A M A', 'NIK', 'JABATAN', 'Unit Kerja', 'GOL 2025', 'TGL. DALAM JABATAN'],
         [1, 'Karyawan Contoh Bezetting', '99000077', $jabatan, 'KEBUN UJI LAMA (K.SAWIT)', 'IIIC/02', '01-04-2023'],
+        // Not in the application: the rebuild excludes them ("Belum ada pada data karyawan"), so the Dikecualikan tab has a group.
+        [2, 'Karyawan Contoh Tanpa Data', '99000088', $jabatan, 'KEBUN UJI LAMA (K.SAWIT)', 'IIIC/02', '01-04-2023'],
     ], null, 'A1', true);
     $path = tempnam(sys_get_temp_dir(), 'bez').'.xlsx';
     (new Xlsx($book))->save($path);
