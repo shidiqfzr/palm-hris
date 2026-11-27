@@ -1,6 +1,6 @@
 {{-- Detail Rekonstruksi Riwayat dari Bezetting: pola layar Riwayat & Persetujuan Impor dan SK Struktur (DESIGN.md §8.5a). --}}
-<div class="space-y-6" x-data="{ approveOpen: false, rejectOpen: false, rollbackOpen: false, bulkOpen: false, submitOpen: false }"
-    @bezetting-action-finished.window="approveOpen = false; rejectOpen = false; rollbackOpen = false; bulkOpen = false; submitOpen = false">
+<div class="space-y-6" x-data="{ approveOpen: false, rejectOpen: false, rollbackOpen: false, bulkOpen: false, suggestOpen: false, submitOpen: false, withdrawOpen: false }"
+    @bezetting-action-finished.window="approveOpen = false; rejectOpen = false; rollbackOpen = false; bulkOpen = false; suggestOpen = false; submitOpen = false; withdrawOpen = false">
     <x-admin.flash />
 
     @if ($run->payload_purged_at && $run->status !== 'completed' && $run->status !== 'rolled_back')
@@ -10,9 +10,11 @@
         </div>
     @endif
 
-    <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-        <div class="lg:col-span-8 space-y-6">
-            <section class="bg-white rounded-2xl border border-surface-200/80 p-5 shadow-xs space-y-4" aria-labelledby="summary-title">
+    {{-- Both columns always end at the same height (stretch): the summary card fills the left column and the last card of the
+         right column fills the right one, whether the file list is open or closed (DESIGN.md §8.6a). --}}
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch">
+        <div class="lg:col-span-8 flex flex-col">
+            <section class="flex-1 flex flex-col gap-4 bg-white rounded-2xl border border-surface-200/80 p-5 shadow-xs" aria-labelledby="summary-title">
                 <div class="flex flex-wrap items-center justify-between gap-3">
                     <h2 id="summary-title" class="text-base font-bold text-surface-900">Ringkasan</h2>
                     <x-admin.bezetting-status :status="$run->status" />
@@ -28,169 +30,63 @@
                     <p class="text-xs text-surface-600"><i class="fas fa-circle-info mr-1 text-surface-500" aria-hidden="true"></i>Angka riwayat, tanggal perkiraan, dan celah baru akurat setelah seluruh nama diputuskan, karena baris dengan nama yang belum diputuskan belum dihitung.</p>
                 @endif
                 @if ($summary !== [])
-                    <dl class="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2 text-sm">
-                        <div class="flex items-baseline justify-between gap-3"><dt class="text-surface-600">Tanggal mulai perkiraan</dt><dd class="font-mono tabular-nums font-semibold text-surface-900">{{ $summary['diperkirakan'] ?? 0 }}</dd></div>
-                        <div class="flex items-baseline justify-between gap-3"><dt class="text-surface-600">Keluar dari daftar Bezetting</dt><dd class="font-mono tabular-nums font-semibold text-surface-900">{{ $summary['keluar_daftar'] ?? 0 }}</dd></div>
-                        <div class="flex items-baseline justify-between gap-3"><dt class="text-surface-600">Celah bulan (tidak tercantum lalu tercantum lagi)</dt><dd class="font-mono tabular-nums font-semibold text-surface-900">{{ $summary['celah'] ?? 0 }}</dd></div>
-                        <div class="flex items-baseline justify-between gap-3"><dt class="text-surface-600">Perpindahan belum tercatat di aplikasi</dt><dd class="font-mono tabular-nums font-semibold {{ ($summary['perpindahan_belum_tercatat'] ?? 0) > 0 ? 'text-warning-800' : 'text-surface-900' }}">{{ $summary['perpindahan_belum_tercatat'] ?? 0 }}</dd></div>
-                    </dl>
+                    {{-- Each counter opens the matching list in the recap below (same numbers, per person). --}}
+                    @php
+                        $counters = [
+                            ['label' => 'Tanggal mulai perkiraan', 'value' => $summary['diperkirakan'] ?? 0, 'view' => 'karyawan', 'saring' => 'perkiraan', 'warn' => false],
+                            ['label' => 'Keluar dari daftar Bezetting', 'value' => $summary['keluar_daftar'] ?? 0, 'view' => 'tindak_lanjut', 'saring' => 'keluar', 'warn' => false],
+                            ['label' => 'Celah bulan (tidak tercantum lalu tercantum lagi)', 'value' => $summary['celah'] ?? 0, 'view' => 'tindak_lanjut', 'saring' => 'celah', 'warn' => false],
+                            ['label' => 'Perubahan perlu diperiksa', 'value' => $summary['perpindahan_belum_tercatat'] ?? 0, 'view' => 'tindak_lanjut', 'saring' => 'perpindahan', 'warn' => true],
+                        ];
+                    @endphp
+                    {{-- Secondary counters sit at the bottom of the card behind one separator, so a stretched card never spreads its content apart. --}}
+                    <div class="mt-auto pt-4 border-t border-surface-100 space-y-3">
+                    <ul class="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-1 text-sm">
+                        @foreach ($counters as $counter)
+                            <li>
+                                <button type="button"
+                                    wire:click="$dispatch('recap-filter', { view: '{{ $counter['view'] }}', saring: '{{ $counter['saring'] }}' })"
+                                    @click="$nextTick(() => document.getElementById('rekap')?.scrollIntoView({ behavior: 'smooth', block: 'start' }))"
+                                    @disabled($counter['value'] === 0)
+                                    class="w-full flex items-baseline justify-between gap-3 rounded-lg px-2 py-1 -mx-2 text-left transition enabled:hover:bg-surface-50 enabled:cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 disabled:cursor-default">
+                                    <span class="text-surface-600">{{ $counter['label'] }}</span>
+                                    <span class="flex items-baseline gap-2">
+                                        <span class="font-mono tabular-nums font-semibold {{ $counter['warn'] && $counter['value'] > 0 ? 'text-warning-800' : 'text-surface-900' }}">{{ $counter['value'] }}</span>
+                                        @if ($counter['value'] > 0)<span class="text-[11px] font-semibold text-primary-700 whitespace-nowrap">Lihat daftar<span class="sr-only"> {{ $counter['label'] }}</span></span>@endif
+                                    </span>
+                                </button>
+                            </li>
+                        @endforeach
+                    </ul>
                     @if (($summary['perpindahan_belum_tercatat'] ?? 0) > 0)
                         <p class="text-xs text-surface-600">Perpindahan sesudah riwayat pertama di aplikasi tidak ditulis oleh rekonstruksi. Proses melalui modul Mutasi beserta SK-nya.</p>
                     @endif
+                    </div>
                 @endif
             </section>
-
-            @if ($plan !== null)
-                <x-admin.table.card>
-                    <x-admin.table.header title="Nama yang Perlu Diputuskan" :paginator="$blocking" noun="Nama">
-                        <x-slot:actions>
-                            @if ($editable && ($blockingCounts['jabatan'] ?? 0) > 0)
-                                <x-admin.button variant="secondary" size="sm" icon="fas fa-check-double" @click="bulkOpen = true">Simpan Jabatan Tersisa Apa Adanya</x-admin.button>
-                            @endif
-                        </x-slot:actions>
-                    </x-admin.table.header>
-                    <div class="px-5 py-3 border-b border-surface-200 flex flex-wrap items-center gap-3 text-xs">
-                        <label for="kind-filter" class="font-semibold text-surface-700">Jenis</label>
-                        <select id="kind-filter" wire:model.live="kindFilter" class="h-8 py-0 pl-2 pr-7 appearance-none bg-white select-chevron border border-surface-300 rounded-md text-xs text-surface-800 focus:outline-none focus:ring-2 focus:ring-primary-100 focus:border-primary-600">
-                            <option value="">Semua ({{ array_sum($blockingCounts) }})</option>
-                            <option value="unit">Unit kerja ({{ $blockingCounts['unit'] ?? 0 }})</option>
-                            <option value="jabatan">Jabatan ({{ $blockingCounts['jabatan'] ?? 0 }})</option>
-                            <option value="status">Frasa status ({{ $blockingCounts['status'] ?? 0 }})</option>
-                        </select>
-                        <p class="text-surface-600">Petakan ke Master Formasi, simpan apa adanya (di luar struktur saat ini), atau lewati. Tidak ada unit atau jabatan yang dibuat.</p>
-                    </div>
-                    <div class="relative overflow-x-auto">
-                        <table class="w-full text-left border-collapse text-xs">
-                            <thead class="bg-surface-50">
-                                <tr class="border-b border-surface-200">
-                                    <x-admin.table.th>Jenis</x-admin.table.th>
-                                    <x-admin.table.th>Nama pada Berkas</x-admin.table.th>
-                                    <x-admin.table.th class="text-right">Baris</x-admin.table.th>
-                                    <x-admin.table.th>Petakan ke</x-admin.table.th>
-                                    <x-admin.table.th class="text-right">Keputusan</x-admin.table.th>
-                                </tr>
-                            </thead>
-                            <tbody class="divide-y divide-surface-100 text-surface-800">
-                                @forelse ($blocking as $item)
-                                    <tr wire:key="name-{{ $item['key'] }}" class="hover:bg-surface-50/75 transition align-top">
-                                        <td class="px-4 py-3 whitespace-nowrap">{{ ['unit' => 'Unit kerja', 'jabatan' => 'Jabatan', 'status' => 'Frasa status'][$item['kind']] ?? $item['kind'] }}</td>
-                                        <td class="px-4 py-3 font-semibold text-surface-900">
-                                            {{ $item['text'] }}
-                                            @if ($item['suggestion'])
-                                                <span class="mt-1 block text-[11px] font-normal text-surface-600">Saran: {{ $item['suggestion'] }}</span>
-                                            @endif
-                                        </td>
-                                        <td class="px-4 py-3 text-right tabular-nums">{{ $item['count'] }}</td>
-                                        <td class="px-4 py-3 min-w-[14rem]">
-                                            @if ($editable)
-                                                <label for="target-{{ $item['key'] }}" class="sr-only">Petakan {{ $item['text'] }} ke</label>
-                                                <select id="target-{{ $item['key'] }}" wire:model="targets.{{ $item['key'] }}" class="w-full h-8 py-0 pl-2 pr-7 appearance-none bg-white select-chevron border border-surface-300 rounded-md text-xs text-surface-800 focus:outline-none focus:ring-2 focus:ring-primary-100 focus:border-primary-600">
-                                                    <option value="">Pilih nama resmi…</option>
-                                                    @foreach ($options[$item['kind']] as $option)
-                                                        <option value="{{ $option }}">{{ $option }}</option>
-                                                    @endforeach
-                                                </select>
-                                            @else
-                                                <span class="text-surface-500">—</span>
-                                            @endif
-                                        </td>
-                                        <td class="px-4 py-3">
-                                            @if ($editable)
-                                                <div class="flex flex-wrap justify-end gap-1.5">
-                                                    <x-admin.button size="sm" icon="fas fa-link" wire:click="map('{{ $item['key'] }}')" target="map">Petakan</x-admin.button>
-                                                    @if ($item['kind'] !== 'status')
-                                                        <x-admin.button size="sm" variant="secondary" wire:click="keep('{{ $item['key'] }}')" target="keep">Apa Adanya</x-admin.button>
-                                                        <x-admin.button size="sm" variant="ghost" wire:click="skip('{{ $item['key'] }}')" target="skip">Lewati</x-admin.button>
-                                                    @endif
-                                                </div>
-                                            @else
-                                                <span class="block text-right text-surface-500">—</span>
-                                            @endif
-                                        </td>
-                                    </tr>
-                                @empty
-                                    <x-admin.table.empty-state :colspan="5" icon="fas fa-circle-check" message="Semua nama sudah diputuskan." />
-                                @endforelse
-                            </tbody>
-                        </table>
-                    </div>
-                    <x-admin.table.pagination :paginator="$blocking" noun="nama" />
-                </x-admin.table.card>
-
-                <section class="bg-white rounded-2xl border border-surface-200/80 p-5 shadow-xs space-y-3" aria-labelledby="excluded-title">
-                    <div class="flex flex-wrap items-center justify-between gap-3">
-                        <h2 id="excluded-title" class="text-base font-bold text-surface-900">Karyawan yang Dikecualikan</h2>
-                        <x-admin.button href="{{ route('admin.employees.bezetting.verification', $run) }}" variant="secondary" size="sm" icon="fas fa-file-excel">Unduh Daftar Verifikasi SDM</x-admin.button>
-                    </div>
-                    <p class="text-sm text-surface-600">Karyawan berikut tidak ditulis pada proses ini. Daftar verifikasi (NIK utuh) hanya untuk pemeriksaan SDM terhadap dokumen asli; setiap unduhan tercatat.</p>
-                    @forelse ($excludedGroups as $group)
-                        <details class="rounded-xl border border-surface-200">
-                            <summary class="flex items-center justify-between gap-3 px-4 py-2.5 cursor-pointer text-sm font-semibold text-surface-800">
-                                <span>{{ $group['label'] }}</span>
-                                <span class="font-mono tabular-nums">{{ $group['count'] }}</span>
-                            </summary>
-                            <ul class="px-4 pb-3 grid grid-cols-2 sm:grid-cols-4 gap-x-4 gap-y-1 text-xs text-surface-700 font-mono">
-                                @foreach ($group['people'] as $person)
-                                    <li>{{ $person['nik'] }}@if ($person['periode']) <span class="text-surface-500">({{ $person['periode'] }})</span>@endif</li>
-                                @endforeach
-                                @if ($group['count'] > count($group['people']))
-                                    <li class="col-span-full text-surface-500 font-sans">Selengkapnya pada daftar verifikasi.</li>
-                                @endif
-                            </ul>
-                        </details>
-                    @empty
-                        <p class="text-sm text-surface-600">Tidak ada karyawan yang dikecualikan.</p>
-                    @endforelse
-                </section>
-            @endif
-
-            <section class="bg-white rounded-2xl border border-surface-200/80 p-5 shadow-xs space-y-3" aria-labelledby="decision-title">
-                <h2 id="decision-title" class="text-base font-bold text-surface-900">Keputusan</h2>
-                <div class="flex flex-wrap items-center gap-3">
-                    @if ($canSubmit)
-                        <x-admin.button icon="fas fa-paper-plane" @click="submitOpen = true">Ajukan untuk Persetujuan</x-admin.button>
-                    @elseif ($editable)
-                        <p class="text-sm text-surface-600">Putuskan seluruh nama lebih dulu. Hanya pengaju proses ini yang dapat mengajukannya.</p>
-                    @endif
-
-                    @if ($canApprove)
-                        <x-admin.button icon="fas fa-check" @click="approveOpen = true">Setujui dan Simpan Riwayat</x-admin.button>
-                        <x-admin.button variant="secondary" icon="fas fa-ban" @click="rejectOpen = true">Kembalikan</x-admin.button>
-                    @elseif ($blockedByFourEyes)
-                        <p class="flex-1 min-w-[16rem] text-sm text-surface-600 leading-relaxed">
-                            <i class="fas fa-user-lock mr-1 text-surface-500" aria-hidden="true"></i>
-                            Anda adalah pengaju proses ini sehingga tidak dapat menyetujuinya sendiri (prinsip empat mata). Admin lain perlu meninjau dan menyetujui.
-                        </p>
-                    @endif
-                </div>
-                @if ($run->status === 'completed')
-                    <p class="text-sm text-surface-600">Riwayat tersimpan sebagai catatan data kepegawaian (bukan SK mutasi) dan tampil pada Riwayat Karir dengan lencana Bezetting Historis.</p>
-                @endif
-            </section>
-
-            @if ($canRollback)
-                <section class="bg-white rounded-2xl border border-danger-200 shadow-xs overflow-hidden" aria-labelledby="risk-title">
-                    <div class="px-5 py-3.5 bg-danger-50 border-b border-danger-200">
-                        <h2 id="risk-title" class="text-base font-bold text-danger-800"><i class="fas fa-triangle-exclamation mr-1.5" aria-hidden="true"></i>Tindakan Berisiko: Batalkan Rekonstruksi</h2>
-                    </div>
-                    <div class="p-5 space-y-3">
-                        <p class="text-sm text-surface-700">Pembatalan mungkin dalam {{ $undoWindowDays }} hari sejak disimpan, selama riwayatnya belum berubah. Riwayat tidak dihapus permanen; alasan pembatalan dicatat.</p>
-                        <x-admin.button variant="danger" icon="fas fa-rotate-left" @click="rollbackOpen = true">Batalkan Rekonstruksi</x-admin.button>
-                    </div>
-                </section>
-            @endif
         </div>
 
-        <aside class="lg:col-span-4 space-y-6">
+        <aside class="lg:col-span-4 flex flex-col gap-6">
             <section class="bg-white rounded-2xl border border-surface-200/80 p-5 shadow-xs" aria-labelledby="timeline-title">
                 <h2 id="timeline-title" class="text-base font-bold text-surface-900 mb-4">Jejak Keputusan</h2>
                 <x-admin.decision-timeline :steps="$steps" />
             </section>
 
-            <section class="bg-white rounded-2xl border border-surface-200/80 p-5 shadow-xs space-y-3" aria-labelledby="files-title">
+            <section class="flex-1 bg-white rounded-2xl border border-surface-200/80 p-5 shadow-xs space-y-3" aria-labelledby="files-title">
                 <h2 id="files-title" class="text-base font-bold text-surface-900">Berkas Terbaca</h2>
+                @php $warnings = collect($run->files ?? [])->sum(fn ($file) => count($file['warnings'] ?? [])); @endphp
+                {{-- A summary line keeps the two top columns balanced; the list opens on request (open by default when a file has a warning). --}}
+                <p class="text-sm text-surface-800">
+                    <span class="font-semibold">{{ $filesSummary['count'] }} berkas</span> · {{ $run->period_from }} s.d. {{ $run->period_to }} · {{ number_format($filesSummary['rows'], 0, ',', '.') }} baris
+                    @if ($warnings > 0)<span class="block mt-1 text-xs font-semibold text-warning-800"><i class="fas fa-triangle-exclamation mr-1" aria-hidden="true"></i>{{ $warnings }} peringatan berkas</span>@endif
+                </p>
                 <p class="text-xs text-surface-600">Berkas sudah dihapus dari server; yang tersimpan hanya nama, periode, dan kode verifikasinya.</p>
-                <ul class="divide-y divide-surface-100 text-xs">
+                <details class="group rounded-xl border border-surface-200" @if ($warnings > 0) open @endif>
+                    <summary class="flex items-center justify-between gap-2 px-3 py-2 cursor-pointer text-xs font-semibold text-surface-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 rounded-xl">
+                        <span>Daftar berkas</span>
+                        <i class="fas fa-chevron-down text-[10px] text-surface-400 transition group-open:rotate-180" aria-hidden="true"></i>
+                    </summary>
+                <ul class="divide-y divide-surface-100 text-xs px-3 pb-1 max-h-44 overflow-y-auto scrollbar-soft" tabindex="0" aria-label="Daftar berkas terbaca">
                     @foreach ($run->files ?? [] as $file)
                         <li class="py-2" title="Kode verifikasi berkas (SHA-256): {{ $file['sha256'] }}">
                             <div class="flex items-center justify-between gap-2">
@@ -204,9 +100,206 @@
                         </li>
                     @endforeach
                 </ul>
+                </details>
             </section>
         </aside>
     </div>
+
+    {{-- Review workspace below the summary: one section at a time, full page width, in work order (DESIGN.md §8.6a). --}}
+    <section class="space-y-4" aria-labelledby="review-title">
+        <div class="flex flex-wrap items-center justify-between gap-3">
+            <h2 id="review-title" class="text-base font-bold text-surface-900">Tinjauan</h2>
+            @if (count($sections) > 1)
+                <x-admin.segmented label="Bagian tinjauan" :options="$sections" :current="$currentSection" action="setSection" />
+            @endif
+        </div>
+
+        @if ($plan !== null && $currentSection === 'nama')
+            <x-admin.table.card>
+                <x-admin.table.header title="Nama yang Perlu Diputuskan" :paginator="$blocking" noun="Nama">
+                    <x-slot:actions>
+                        @if ($editable && $suggestedCount > 0)
+                            <x-admin.button variant="secondary" size="sm" icon="fas fa-wand-magic-sparkles" @click="suggestOpen = true">Petakan Sesuai Saran ({{ $suggestedCount }})</x-admin.button>
+                        @endif
+                        @if ($editable && $unmatchedCount > 0)
+                            <x-admin.button variant="secondary" size="sm" icon="fas fa-check-double" @click="bulkOpen = true">Simpan Tanpa Padanan Apa Adanya ({{ $unmatchedCount }})</x-admin.button>
+                        @endif
+                    </x-slot:actions>
+                </x-admin.table.header>
+                @if ($autoCount > 0)
+                    <p class="px-5 py-3 border-b border-surface-200 text-xs text-surface-600"><i class="fas fa-circle-check text-primary-600 mr-1" aria-hidden="true"></i>{{ $autoCount }} nama sudah dicocokkan otomatis dengan Master Formasi karena hanya berbeda huruf besar atau kecil, tanda baca, atau "&" dan "dan". Nama itu tidak perlu diputuskan.</p>
+                @endif
+                <div class="px-5 py-3 border-b border-surface-200 flex flex-wrap items-center gap-4 text-xs">
+                    <div class="flex items-center gap-2">
+                        <label for="decision-filter" class="font-semibold text-surface-700">Status</label>
+                        <select id="decision-filter" wire:model.live="decisionFilter" class="h-8 py-0 pl-2 pr-7 appearance-none bg-white select-chevron border border-surface-300 rounded-md text-xs text-surface-800 focus:outline-none focus:ring-2 focus:ring-primary-100 focus:border-primary-600">
+                            <option value="undecided">Belum diputuskan ({{ $undecidedTotal }})</option>
+                            <option value="decided">Sudah diputuskan ({{ $decidedTotal }})</option>
+                        </select>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <label for="kind-filter" class="font-semibold text-surface-700">Jenis</label>
+                        <select id="kind-filter" wire:model.live="kindFilter" class="h-8 py-0 pl-2 pr-7 appearance-none bg-white select-chevron border border-surface-300 rounded-md text-xs text-surface-800 focus:outline-none focus:ring-2 focus:ring-primary-100 focus:border-primary-600">
+                            <option value="">Semua ({{ array_sum($blockingCounts) }})</option>
+                            <option value="unit">Unit kerja ({{ $blockingCounts['unit'] ?? 0 }})</option>
+                            <option value="jabatan">Jabatan ({{ $blockingCounts['jabatan'] ?? 0 }})</option>
+                            <option value="status">Frasa status ({{ $blockingCounts['status'] ?? 0 }})</option>
+                        </select>
+                    </div>
+                </div>
+                <x-admin.table.guide :guide="\App\Support\BezettingReviewGuide::names()" />
+                <div class="relative overflow-x-auto">
+                    {{-- Fixed layout on desktop: the Muncul and Keputusan columns keep the same width and position whatever the names are, so the pickers line up on every page and filter. --}}
+                    <table class="w-full text-left border-collapse text-xs lg:table-fixed">
+                        <thead class="bg-surface-50">
+                            <tr class="border-b border-surface-200">
+                                <x-admin.table.th>Nama pada Berkas</x-admin.table.th>
+                                <x-admin.table.th class="text-right whitespace-nowrap lg:w-28">Muncul</x-admin.table.th>
+                                <x-admin.table.th class="min-w-[34rem] lg:w-[36rem]">Keputusan</x-admin.table.th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-surface-100 text-surface-800">
+                            @forelse ($blocking as $item)
+                                <tr wire:key="name-{{ $item['key'] }}" class="hover:bg-surface-50/75 transition">
+                                    <td class="px-4 py-2.5">
+                                        {{-- Fixed-width kind badge beside a text block, aligned on the text baseline so the badge sits level with the
+                                             first line of the name and a wrapped name stays aligned with its first line. --}}
+                                        <div class="flex items-baseline gap-3">
+                                            <span class="inline-flex w-[5.5rem] shrink-0 items-center justify-center px-2 py-0.5 rounded-full text-[11px] font-medium whitespace-nowrap bg-surface-100 text-surface-700 border border-surface-200">{{ ['unit' => 'Unit kerja', 'jabatan' => 'Jabatan', 'status' => 'Frasa status'][$item['kind']] ?? $item['kind'] }}</span>
+                                            <div class="min-w-0">
+                                                <span class="font-semibold text-surface-900 break-words">{{ $item['text'] }}</span>
+                                                @if ($showingDecided)
+                                                    @php
+                                                        $decisionLabel = match ($item['decision'] ?? '') {
+                                                            'map' => 'Dipetakan ke '.($item['target'] ?? '—'),
+                                                            'keep' => 'Apa Adanya',
+                                                            'skip' => 'Dilewati',
+                                                            default => '—',
+                                                        };
+                                                    @endphp
+                                                    <div class="mt-0.5 text-[11px] text-primary-700 font-medium">{{ $decisionLabel }}</div>
+                                                @endif
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td class="px-4 py-2.5 text-right tabular-nums whitespace-nowrap" title="Jumlah baris berkas yang memakai nama ini">{{ $item['count'] }} baris</td>
+                                    <td class="px-4 py-2.5">
+                                        @if ($editable)
+                                            {{-- One line per name: the official-name picker (searchable, the Master Formasi has far more than 15
+                                                 names; DESIGN.md §6), then the three decisions as one equal set. The choice is held in the
+                                                 browser until Petakan is pressed (no request per pick). --}}
+                                            <div class="flex flex-wrap lg:flex-nowrap items-center gap-1.5"
+                                                @change="if (typeof $event.detail === 'string') $wire.set('targets.{{ $item['key'] }}', $event.detail, false)">
+                                                <div class="w-full lg:w-64 shrink-0">
+                                                    <span class="sr-only">Petakan {{ $item['text'] }} ke</span>
+                                                    <x-admin.searchable-select :options="$options[$item['kind']]" :selected="$targets[$item['key']] ?? ''" floating
+                                                        placeholder="Pilih nama resmi…" search-placeholder="Cari nama resmi..." empty-text="Nama resmi tidak ditemukan" />
+                                                </div>
+                                                <x-admin.button size="sm" icon="fas fa-link" class="whitespace-nowrap" wire:click="map('{{ $item['key'] }}')" target="map">Petakan</x-admin.button>
+                                                @if ($item['kind'] !== 'status')
+                                                    <x-admin.button size="sm" variant="secondary" class="whitespace-nowrap" wire:click="keep('{{ $item['key'] }}')" target="keep">Apa Adanya</x-admin.button>
+                                                    <x-admin.button size="sm" variant="secondary" class="whitespace-nowrap" wire:click="skip('{{ $item['key'] }}')" target="skip">Lewati</x-admin.button>
+                                                @endif
+                                            </div>
+                                        @else
+                                            <span class="text-surface-600">{{ $showingDecided ? $decisionLabel : '—' }}</span>
+                                        @endif
+                                    </td>
+                                </tr>
+                            @empty
+                                <x-admin.table.empty-state :colspan="3" icon="fas fa-circle-check" :message="$showingDecided ? 'Belum ada keputusan nama tersimpan pada berkas ini.' : 'Semua nama sudah diputuskan.'" />
+                            @endforelse
+                        </tbody>
+                    </table>
+                </div>
+                <x-admin.table.pagination :paginator="$blocking" noun="nama" />
+            </x-admin.table.card>
+        @endif
+
+        @if (in_array($currentSection, ['riwayat', 'tindak_lanjut', 'dikecualikan'], true))
+            {{-- One recap component per tab (no nested tabs); a summary counter opens it with its filter. --}}
+            <livewire:admin.employees.bezetting-run-recap :run-id="$run->id" :view="['riwayat' => 'karyawan', 'tindak_lanjut' => 'tindak_lanjut', 'dikecualikan' => 'dikecualikan'][$currentSection]" :saring="$recapFilter"
+                :key="'recap-'.$run->id.'-'.$run->status.'-'.$currentSection.'-'.$recapFilter" />
+        @endif
+    </section>
+
+    {{-- The decision comes after the review (DESIGN.md §8.6a): what the bar cannot say in a line is explained just above it. --}}
+    @if ($submitHint || $blockedByFourEyes || $run->status === 'completed')
+        <div role="status" class="flex items-start gap-3 rounded-xl border border-surface-200 bg-white px-4 py-3 text-sm text-surface-700 leading-relaxed" data-testid="bezetting-submit-hint">
+            <i class="fas {{ $blockedByFourEyes ? 'fa-user-lock' : 'fa-circle-info' }} mt-1 text-surface-500" aria-hidden="true"></i>
+            <p>
+                @if ($blockedByFourEyes)
+                    Anda adalah pengaju proses ini sehingga tidak dapat menyetujuinya sendiri (prinsip empat mata). Admin lain perlu meninjau dan menyetujui.
+                @elseif ($run->status === 'completed')
+                    Riwayat tersimpan sebagai catatan data kepegawaian (bukan SK mutasi) dan tampil pada Riwayat Karir dengan lencana Bezetting Historis.
+                @else
+                    {{ $submitHint }}
+                @endif
+            </p>
+        </div>
+    @endif
+
+    @if ($canRollback)
+        <section class="bg-white rounded-2xl border border-danger-200 shadow-xs overflow-hidden" aria-labelledby="risk-title">
+            <div class="px-5 py-3.5 bg-danger-50 border-b border-danger-200">
+                <h2 id="risk-title" class="text-base font-bold text-danger-800"><i class="fas fa-triangle-exclamation mr-1.5" aria-hidden="true"></i>Tindakan Berisiko: Batalkan Rekonstruksi</h2>
+            </div>
+            <div class="p-5 space-y-3">
+                <p class="text-sm text-surface-700">Pembatalan mungkin dalam {{ $undoWindowDays }} hari sejak disimpan, selama riwayatnya belum berubah. Riwayat tidak dihapus permanen; alasan pembatalan dicatat.</p>
+                <x-admin.button variant="danger" icon="fas fa-rotate-left" @click="rollbackOpen = true">Batalkan Rekonstruksi</x-admin.button>
+            </div>
+        </section>
+    @endif
+
+    {{-- Decision bar: the shared sticky form footer (DESIGN.md §7.1), so the action stays in reach while a long review scrolls. It must be a direct child of the page: a sticky element only moves inside its parent. --}}
+    @php
+        $barRows = number_format($run->rows_written ?: ($plan['summary']['baris_riwayat'] ?? $run->summary['baris_riwayat'] ?? 0), 0, ',', '.');
+        $barPeople = number_format($plan['summary']['karyawan'] ?? $run->summary['karyawan'] ?? 0, 0, ',', '.');
+        $undecidedCount = $plan !== null ? count($plan['blocking']) : 0;
+    @endphp
+
+        <x-admin.form.footer :cancel-url="route('admin.employees.bezetting.index')" cancel-label="Kembali ke Daftar Proses">
+            <x-slot:status>
+                <i class="fas fa-gavel text-primary-600" aria-hidden="true"></i>
+                <span>
+                    <strong class="font-semibold text-surface-800">Keputusan:</strong>
+                    @if ($canSubmit)
+                        siap diajukan, {{ $barRows }} baris riwayat untuk {{ $barPeople }} karyawan.
+                    @elseif ($canApprove)
+                        menunggu persetujuan Anda, {{ $barRows }} baris riwayat untuk {{ $barPeople }} karyawan.
+                    @elseif ($blockedByFourEyes)
+                        menunggu persetujuan admin lain.
+                    @elseif ($run->status === 'completed')
+                        tersimpan, {{ $barRows }} baris riwayat.
+                    @elseif ($undecidedCount > 0)
+                        {{ number_format($undecidedCount, 0, ',', '.') }} nama belum diputuskan.
+                    @elseif ($editable)
+                        belum ada riwayat yang dapat diajukan.
+                    @else
+                        proses ini tidak memerlukan keputusan.
+                    @endif
+                </span>
+            </x-slot:status>
+            <x-slot:actions>
+                @if ($plan !== null && $undecidedCount > 0 && $currentSection !== 'nama')
+                    <x-admin.button variant="secondary" icon="fas fa-list-check" wire:click="setSection('nama')" target="setSection">Buka Daftar Nama</x-admin.button>
+                @endif
+                @if ($canWithdraw)
+                    <x-admin.button variant="secondary" icon="fas fa-xmark" @click="withdrawOpen = true">Tutup Proses</x-admin.button>
+                @endif
+                @if ($canApprove)
+                    <x-admin.button variant="secondary" icon="fas fa-ban" @click="rejectOpen = true">Kembalikan</x-admin.button>
+                @endif
+            </x-slot:actions>
+            <x-slot:primary>
+                @if ($canSubmit)
+                    <x-admin.button icon="fas fa-paper-plane" @click="submitOpen = true">Ajukan untuk Persetujuan</x-admin.button>
+                @elseif ($canApprove)
+                    <x-admin.button icon="fas fa-check" @click="approveOpen = true">Setujui dan Simpan Riwayat</x-admin.button>
+                @endif
+            </x-slot:primary>
+        </x-admin.form.footer>
+
 
     {{-- Dialog konfirmasi (DESIGN.md §7.6) --}}
     @if ($canSubmit)
@@ -218,9 +311,24 @@
     @endif
 
     @if ($editable)
-        <x-admin.modal open="bulkOpen" tone="warning" title="Simpan seluruh nama jabatan tersisa apa adanya?" description="{{ $blockingCounts['jabatan'] ?? 0 }} nama jabatan yang belum diputuskan akan disimpan sesuai teks berkas dan ditandai di luar struktur saat ini. Setiap keputusan tercatat.">
+        <x-admin.modal open="bulkOpen" tone="warning" title="Simpan nama tanpa padanan apa adanya?" description="{{ $unmatchedCount }} nama unit atau jabatan yang tidak mirip nama mana pun pada Master Formasi akan disimpan sesuai teks berkas dan ditandai di luar struktur saat ini. Setiap keputusan tercatat.">
             <x-slot:footer>
-                <x-admin.button icon="fas fa-check-double" wire:click="keepRemainingPositions" target="keepRemainingPositions">Simpan Apa Adanya</x-admin.button>
+                <x-admin.button icon="fas fa-check-double" wire:click="keepUnmatched" target="keepUnmatched">Simpan Apa Adanya</x-admin.button>
+            </x-slot:footer>
+        </x-admin.modal>
+
+        <x-admin.modal open="suggestOpen" title="Petakan seluruh nama sesuai saran?" description="{{ $suggestedCount }} nama unit atau jabatan dipetakan ke nama Master Formasi yang disarankan pada daftar. Periksa saran pada daftar lebih dulu; setiap keputusan tercatat.">
+            <x-slot:footer>
+                <x-admin.button icon="fas fa-wand-magic-sparkles" wire:click="applySuggestions" target="applySuggestions">Petakan Sesuai Saran</x-admin.button>
+            </x-slot:footer>
+        </x-admin.modal>
+    @endif
+
+    @if ($canWithdraw)
+        <x-admin.modal open="withdrawOpen" tone="warning" title="Tutup proses ini?" description="Tidak ada riwayat yang ditulis. Data berkas proses ini dihapus dan proses tetap tercatat pada daftar. Keputusan nama yang sudah disimpan tetap berlaku untuk proses berikutnya.">
+            <x-admin.form.reason-field id="withdraw-reason" name="reason" label="Alasan" wire:model="reason" :native-validation="false" hint="Alasan dicatat pada jejak keputusan (minimal 10 karakter)." />
+            <x-slot:footer>
+                <x-admin.button icon="fas fa-xmark" wire:click="withdraw" target="withdraw">Tutup Proses</x-admin.button>
             </x-slot:footer>
         </x-admin.modal>
     @endif
