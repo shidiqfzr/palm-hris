@@ -40,7 +40,7 @@ class NotificationCenterService
         if (Gate::forUser($user)->allows(HrisPermission::KARYAWAN_IMPORT)) {
             $pendingBezetting = BezettingBackfillRun::query()
                 ->where('status', BezettingBackfillRun::STATUS_PENDING)
-                ->where('maker_id', '!=', $user->id)
+                ->where(fn ($q) => $q->whereNull('maker_id')->orWhere('maker_id', '!=', $user->id))
                 ->orderBy('id')
                 ->get();
             if ($pendingBezetting->isNotEmpty()) {

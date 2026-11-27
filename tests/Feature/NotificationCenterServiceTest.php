@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\BezettingBackfillRun;
 use App\Models\Employee;
 use App\Models\EmployeeImportLog;
 use App\Models\MutasiChainProposal;
@@ -88,5 +89,27 @@ class NotificationCenterServiceTest extends TestCase
         $mbt = collect(app(NotificationCenterService::class)->itemsFor($admin))->firstWhere('key', 'mbt');
 
         $this->assertSame(1, $mbt['count']);
+    }
+
+    public function test_pending_bezetting_runs_notify_other_import_admins_only(): void
+    {
+        $maker = User::factory()->create(['role' => 'admin']);
+        $checker = User::factory()->create(['role' => 'admin']);
+        $staff = User::factory()->create(['role' => 'user']);
+
+        $run = BezettingBackfillRun::create([
+            'status' => BezettingBackfillRun::STATUS_PENDING,
+            'maker_id' => $maker->id,
+            'maker_name' => $maker->name,
+            'files' => [],
+            'period_from' => '2026-01',
+            'period_to' => '2026-10',
+        ]);
+
+        $this->assertNotContains('rekonstruksi-bezetting', $this->keys($maker));
+        $this->assertNotContains('rekonstruksi-bezetting', $this->keys($staff));
+        $item = collect(app(NotificationCenterService::class)->itemsFor($checker))->firstWhere('key', 'rekonstruksi-bezetting');
+        $this->assertSame(1, $item['count']);
+        $this->assertSame(route('admin.employees.bezetting.show', $run), $item['url']);
     }
 }

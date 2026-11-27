@@ -185,7 +185,8 @@ class BezettingBackfillDetail extends Component
             $names = $this->bulkCandidates(true);
             foreach ($names as $item) {
                 $key = self::key($item['kind'], $item['text']);
-                $service->decide($item['kind'], $item['text'], BezettingNameMapping::DECISION_MAP, $this->targets[$key] ?? $item['suggestion'], auth()->user(), 'Keputusan massal: nama dipetakan sesuai saran Master Formasi');
+                $target = filled($this->targets[$key] ?? null) ? $this->targets[$key] : $item['suggestion'];
+                $service->decide($item['kind'], $item['text'], BezettingNameMapping::DECISION_MAP, $target, auth()->user(), 'Keputusan massal: nama dipetakan sesuai saran Master Formasi');
             }
 
             return count($names);

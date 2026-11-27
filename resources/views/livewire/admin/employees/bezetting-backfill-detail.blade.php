@@ -92,7 +92,7 @@
                     <i class="fas fa-chevron-down text-[10px] text-surface-500 transition group-open:rotate-180" aria-hidden="true"></i>
                 </span>
             </summary>
-            <ul class="mt-3 pt-2 border-t border-surface-200/80 md:columns-2 md:gap-x-8 text-xs max-h-48 overflow-y-auto scrollbar-soft" tabindex="0" aria-label="Daftar berkas terbaca">
+            <ul class="mt-3 pt-2 border-t border-surface-200/80 md:columns-2 md:gap-x-8 text-xs" aria-label="Daftar berkas terbaca">
                 @foreach ($run->files ?? [] as $file)
                     <li class="py-2 border-b border-surface-100 break-inside-avoid flex flex-wrap items-baseline justify-between gap-x-4 gap-y-0.5" title="Kode verifikasi berkas (SHA-256): {{ $file['sha256'] }}">
                         <div class="flex items-baseline gap-2 min-w-0">

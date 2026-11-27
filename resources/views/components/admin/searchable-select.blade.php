@@ -180,40 +180,44 @@
         <input type="hidden" name="{{ $name }}" id="{{ $id ?? $name }}" :value="selectedValue">
     @endif
 
-    <!-- Trigger Button -->
-    <div @click="toggleOpen()" x-ref="trigger"
-        role="combobox"
-        aria-haspopup="listbox"
-        :aria-expanded="open.toString()"
-        @keydown.arrow-down.prevent="navigateDown()"
-        @keydown.arrow-up.prevent="navigateUp()"
-        @keydown.enter.prevent="if(!open) toggleOpen(); else selectActive();"
-        tabindex="0"
-        class="w-full {{ $triggerSize }} border rounded-lg flex items-center justify-between transition cursor-pointer hover:border-primary-500 focus:outline-none focus-visible:ring-2 select-none"
-        :class="selectedValue ? 'text-surface-800' : 'text-surface-500'">
-        
-        <div class="flex items-center gap-2 min-w-0 pr-1 flex-1">
-            @if($icon)
-                <i class="{{ $icon }} text-[11px] shrink-0 text-surface-400" :class="selectedValue ? 'text-primary-600' : ''"></i>
-            @endif
-            <span class="truncate block" x-text="selectedLabel"></span>
-        </div>
+    @php $listboxId = 'ss-lb-'.\Illuminate\Support\Str::random(8); @endphp
+    <!-- Trigger Button (clear button is a sibling, not nested inside role="combobox", to satisfy WCAG nested-interactive) -->
+    <div class="relative">
+        <div @click="toggleOpen()" x-ref="trigger"
+            role="combobox"
+            aria-haspopup="listbox"
+            aria-controls="{{ $listboxId }}"
+            aria-label="{{ $placeholder }}"
+            :aria-expanded="open.toString()"
+            @keydown.arrow-down.prevent="navigateDown()"
+            @keydown.arrow-up.prevent="navigateUp()"
+            @keydown.enter.prevent="if(!open) toggleOpen(); else selectActive();"
+            tabindex="0"
+            class="w-full {{ $triggerSize }} border rounded-lg flex items-center justify-between transition cursor-pointer hover:border-primary-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 select-none"
+            :class="selectedValue ? 'text-surface-800 pr-12' : 'text-surface-500'">
 
-        <div class="flex items-center gap-1.5 shrink-0 pl-1 h-5">
-            <!-- Clear Button -->
-            <button x-show="selectedValue"
-                @click.stop="clearSelection()"
-                type="button"
-                aria-label="Hapus pilihan"
-                class="w-5 h-5 inline-flex items-center justify-center leading-none text-surface-500 hover:text-danger rounded transition cursor-pointer"
-                title="Hapus Pilihan">
-                <i class="fas fa-times text-[10px]" aria-hidden="true"></i>
-            </button>
-            <span class="w-5 h-5 inline-flex items-center justify-center" aria-hidden="true">
+            <div class="flex items-center gap-2 min-w-0 pr-1 flex-1">
+                @if($icon)
+                    <i class="{{ $icon }} text-[11px] shrink-0 text-surface-400" :class="selectedValue ? 'text-primary-600' : ''" aria-hidden="true"></i>
+                @endif
+                <span class="truncate block" x-text="selectedLabel"></span>
+            </div>
+
+            <span class="w-5 h-5 inline-flex items-center justify-center shrink-0" aria-hidden="true">
                 <i class="fas fa-chevron-down text-surface-400 text-[10px] transition-transform duration-200"
                     :class="open ? 'rotate-180 text-primary-600' : ''" aria-hidden="true"></i>
             </span>
         </div>
+
+        <!-- Clear Button -->
+        <button x-show="selectedValue" x-cloak
+            @click.stop="clearSelection()"
+            type="button"
+            aria-label="Hapus pilihan"
+            class="absolute right-7 top-1/2 -translate-y-1/2 w-5 h-5 inline-flex items-center justify-center leading-none text-surface-500 hover:text-danger rounded transition cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
+            title="Hapus Pilihan">
+            <i class="fas fa-times text-[10px]" aria-hidden="true"></i>
+        </button>
     </div>
 
     <!-- Dropdown Menu -->
@@ -253,11 +257,12 @@
         </div>
 
         <!-- Scrollable Options List -->
-        <ul x-ref="optionsList" role="listbox"
+        <ul x-ref="optionsList" id="{{ $listboxId }}" role="listbox" x-show="filteredOptions.length > 0 || {{ $hasAllOption ? 'true' : 'false' }}"
             class="overflow-y-auto py-1 divide-y divide-surface-50 scrollbar-soft {{ $maxHeight }}">
 
             @if($hasAllOption)
-                <li @click="selectOption('')"
+                <li role="option" :aria-selected="(!selectedValue).toString()"
+                    @click="selectOption('')"
                     class="px-3 py-2 text-xs font-medium cursor-pointer transition flex items-center justify-between hover:bg-surface-50"
                     :class="!selectedValue ? 'bg-primary-50/80 text-primary-800 font-semibold' : 'text-surface-600'">
                     <span class="truncate">{{ $allOptionText }}</span>
@@ -266,7 +271,7 @@
             @endif
 
             <template x-for="(opt, idx) in filteredOptions" :key="opt.value + '_' + idx">
-                <li data-option-item
+                <li data-option-item role="option" :aria-selected="(String(selectedValue) === String(opt.value)).toString()"
                     @click="selectOption(opt.value)"
                     @mouseenter="activeIndex = idx"
                     class="px-3 py-2 text-xs cursor-pointer transition flex items-center justify-between"
@@ -279,13 +284,13 @@
                     <i x-show="String(selectedValue) === String(opt.value)" class="fas fa-check text-primary-600 text-[10px] shrink-0" aria-hidden="true"></i>
                 </li>
             </template>
-
-            <!-- Empty State -->
-            <li x-show="filteredOptions.length === 0" class="px-3 py-6 text-center text-xs text-surface-500 font-normal">
-                <i class="fas fa-folder-open text-surface-300 text-base mb-1 block" aria-hidden="true"></i>
-                <span>{{ $emptyText }}</span>
-            </li>
         </ul>
+
+        <!-- Empty State (outside role="listbox" so listbox only holds role="option" children) -->
+        <div x-show="filteredOptions.length === 0" class="px-3 py-6 text-center text-xs text-surface-500 font-normal">
+            <i class="fas fa-folder-open text-surface-300 text-base mb-1 block" aria-hidden="true"></i>
+            <span>{{ $emptyText }}</span>
+        </div>
     </div>
 </div>
 
