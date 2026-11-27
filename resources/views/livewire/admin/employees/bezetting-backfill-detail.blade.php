@@ -92,9 +92,9 @@
                     <i class="fas fa-chevron-down text-[10px] text-surface-500 transition group-open:rotate-180" aria-hidden="true"></i>
                 </span>
             </summary>
-            <ul class="mt-3 pt-2 border-t border-surface-200/80 grid grid-cols-1 md:grid-cols-2 gap-x-8 text-xs max-h-48 overflow-y-auto scrollbar-soft" tabindex="0" aria-label="Daftar berkas terbaca">
+            <ul class="mt-3 pt-2 border-t border-surface-200/80 md:columns-2 md:gap-x-8 text-xs max-h-48 overflow-y-auto scrollbar-soft" tabindex="0" aria-label="Daftar berkas terbaca">
                 @foreach ($run->files ?? [] as $file)
-                    <li class="py-2 border-b border-surface-100 flex flex-wrap items-baseline justify-between gap-x-4 gap-y-0.5" title="Kode verifikasi berkas (SHA-256): {{ $file['sha256'] }}">
+                    <li class="py-2 border-b border-surface-100 break-inside-avoid flex flex-wrap items-baseline justify-between gap-x-4 gap-y-0.5" title="Kode verifikasi berkas (SHA-256): {{ $file['sha256'] }}">
                         <div class="flex items-baseline gap-2 min-w-0">
                             <span class="font-semibold text-surface-900 truncate">{{ $file['name'] }}</span>
                             <span class="font-mono text-[11px] text-surface-500">{{ substr($file['sha256'], 0, 16) }}…</span>
