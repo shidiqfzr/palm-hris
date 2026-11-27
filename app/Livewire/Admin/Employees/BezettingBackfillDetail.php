@@ -111,6 +111,7 @@ class BezettingBackfillDetail extends Component
     /** The name is looked up from the server-side plan by its key; the browser never sends the name itself. */
     private function decideByKey(string $key, string $decision, string $success, BezettingBackfillService $service): void
     {
+        $this->authorizeImport();
         $this->section = 'nama'; // stay on the names tab while deciding, also after the last one
         $this->run->refresh();
         if (! in_array($this->run->status, [BezettingBackfillRun::STATUS_STAGED, BezettingBackfillRun::STATUS_REJECTED], true)) {
@@ -127,6 +128,9 @@ class BezettingBackfillDetail extends Component
             return;
         }
         $target = $decision === BezettingNameMapping::DECISION_MAP ? ($this->targets[$key] ?? null) : null;
+        if ($decision !== BezettingNameMapping::DECISION_MAP) {
+            unset($this->targets[$key]);
+        }
         $this->act(fn () => $service->decide($item['kind'], $item['text'], $decision, $target, auth()->user()), $success);
     }
 
@@ -136,7 +140,14 @@ class BezettingBackfillDetail extends Component
      */
     public function keepUnmatched(BezettingBackfillService $service): void
     {
+        $this->authorizeImport();
         $this->section = 'nama';
+        $this->run->refresh();
+        if (! in_array($this->run->status, [BezettingBackfillRun::STATUS_STAGED, BezettingBackfillRun::STATUS_REJECTED], true)) {
+            session()->flash('error', 'Keputusan nama tidak dapat diubah setelah proses diajukan.');
+
+            return;
+        }
         $this->act(function () use ($service) {
             $names = $this->bulkCandidates(false);
             foreach ($names as $item) {
@@ -150,7 +161,14 @@ class BezettingBackfillDetail extends Component
     /** Explicit bulk decision: every undecided unit or position name that has a suggestion is mapped to it (each one audited). */
     public function applySuggestions(BezettingBackfillService $service): void
     {
+        $this->authorizeImport();
         $this->section = 'nama';
+        $this->run->refresh();
+        if (! in_array($this->run->status, [BezettingBackfillRun::STATUS_STAGED, BezettingBackfillRun::STATUS_REJECTED], true)) {
+            session()->flash('error', 'Keputusan nama tidak dapat diubah setelah proses diajukan.');
+
+            return;
+        }
         $this->act(function () use ($service) {
             $names = $this->bulkCandidates(true);
             foreach ($names as $item) {

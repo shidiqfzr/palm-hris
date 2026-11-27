@@ -2,6 +2,7 @@
 
 namespace Tests\Unit;
 
+use App\Models\BezettingLegacyNikMap;
 use App\Services\Bezetting\BezettingReadException;
 use App\Services\Bezetting\BezettingWorkbookReader;
 use App\Services\Import\ImportDateParser;
@@ -236,7 +237,7 @@ class BezettingWorkbookReaderTest extends TestCase
         $this->assertCount(1, $result['rows']);
         $this->assertSame('99000010', $result['rows'][0]['nik']);
         $this->assertFalse($result['rows'][0]['is_legacy_nik']);
-        $this->assertSame(\App\Models\BezettingLegacyNikMap::hashFromRaw('000.0716.1234.5678'), $result['rows'][0]['legacy_nik_hash']);
+        $this->assertSame(BezettingLegacyNikMap::hashFromRaw('000.0716.1234.5678'), $result['rows'][0]['legacy_nik_hash']);
         $this->assertStringNotContainsString('000.0716', json_encode($result['rows']));
     }
 
@@ -254,7 +255,7 @@ class BezettingWorkbookReaderTest extends TestCase
         $this->assertCount(1, $result['rows']);
         $this->assertSame('99000011', $result['rows'][0]['nik']);
         $this->assertFalse($result['rows'][0]['is_legacy_nik']);
-        $this->assertSame(\App\Models\BezettingLegacyNikMap::hashFromRaw('000.0716.9999.1111'), $result['rows'][0]['legacy_nik_hash']);
+        $this->assertSame(BezettingLegacyNikMap::hashFromRaw('000.0716.9999.1111'), $result['rows'][0]['legacy_nik_hash']);
     }
 
     public function test_reads_era_3_legacy_only_nik_column(): void
@@ -272,7 +273,7 @@ class BezettingWorkbookReaderTest extends TestCase
         $this->assertCount(1, $result['rows']);
         $this->assertSame('', $result['rows'][0]['nik']);
         $this->assertTrue($result['rows'][0]['is_legacy_nik']);
-        $this->assertSame(\App\Models\BezettingLegacyNikMap::hashFromRaw('000.0716.1234.5678'), $result['rows'][0]['legacy_nik_hash']);
+        $this->assertSame(BezettingLegacyNikMap::hashFromRaw('000.0716.1234.5678'), $result['rows'][0]['legacy_nik_hash']);
     }
 
     public function test_reads_era_4_2012_three_row_header_col2_unit_headings_and_missing_tgl_jabatan(): void
@@ -320,5 +321,23 @@ class BezettingWorkbookReaderTest extends TestCase
 
         $this->assertSame('2024-09', $result['period']);
         $this->assertNotEmpty(array_filter($result['warnings'], fn ($w) => str_contains($w, '2024-10') && str_contains($w, '2024-09')));
+    }
+
+    public function test_numeric_15_digit_float_legacy_id_is_hashed_and_never_leaks_plaintext_into_nik(): void
+    {
+        $rows = [
+            ['PER AGUSTUS 2015'],
+            ['NO', 'N A M A', 'NIK', 'JABATAN', 'GOL', 'TGL. DALAM JABATAN'],
+            ['', 'BAGIAN TANAMAN'],
+            [1, 'Karyawan Float Legacy', 123456789012340.0, 'Asisten Tanaman', 'IIIB/01', $this->serial('2014-05-01')],
+        ];
+
+        $result = $this->reader()->read($this->workbook($rows), 'Bez Agustus 2015.xls');
+
+        $this->assertCount(1, $result['rows']);
+        $this->assertSame('', $result['rows'][0]['nik']);
+        $this->assertTrue($result['rows'][0]['is_legacy_nik']);
+        $this->assertSame(BezettingLegacyNikMap::hashFromRaw('123456789012340'), $result['rows'][0]['legacy_nik_hash']);
+        $this->assertStringNotContainsString('123456789012340', json_encode($result['rows']));
     }
 }

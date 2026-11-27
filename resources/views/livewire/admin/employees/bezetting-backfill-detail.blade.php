@@ -160,7 +160,7 @@
                         </thead>
                         <tbody class="divide-y divide-surface-100 text-surface-800">
                             @forelse ($blocking as $item)
-                                <tr wire:key="name-{{ $item['key'] }}" class="hover:bg-surface-50/75 transition">
+                                <tr wire:key="name-{{ $item['key'] }}-{{ $item['decision'] ?? 'open' }}" class="hover:bg-surface-50/75 transition">
                                     <td class="px-4 py-2.5">
                                         {{-- Fixed-width kind badge beside a text block, aligned on the text baseline so the badge sits level with the
                                              first line of the name and a wrapped name stays aligned with its first line. --}}

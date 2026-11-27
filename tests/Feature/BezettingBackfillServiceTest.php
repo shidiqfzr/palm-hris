@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Exceptions\ImportAbortedException;
 use App\Models\BezettingBackfillRun;
+use App\Models\BezettingLegacyNikMap;
 use App\Models\Employee;
 use App\Models\JobHistory;
 use App\Models\MasterAuditLog;
@@ -18,6 +19,7 @@ use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 use Tests\TestCase;
@@ -456,9 +458,9 @@ class BezettingBackfillServiceTest extends TestCase
         $noRowsEmp = Employee::factory()->create(['tmt_bekerja' => '2000-01-01', 'nik' => '99000031', 'nama' => 'Siti Rahma', 'jabatan' => 'Manajer Kebun', 'unit_kerja' => 'Kebun Parindu', 'tanggal_dalam_jabatan' => '2020-01-01', 'tmt_unit_kerja' => '2020-01-01']);
         $suspectEmp = Employee::factory()->create(['tmt_bekerja' => '2000-01-01', 'nik' => '99000032', 'nama' => 'Agus Salim', 'tanggal_lahir' => '1980-05-05', 'jabatan' => 'Manajer Kebun', 'unit_kerja' => 'Kebun Parindu', 'tanggal_dalam_jabatan' => '2026-07-01', 'tmt_unit_kerja' => '2026-07-01']);
 
-        $hashWritten = \App\Models\BezettingLegacyNikMap::hashFromRaw('000.0716.0030.0030');
-        $hashNoRows = \App\Models\BezettingLegacyNikMap::hashFromRaw('000.0716.0031.0031');
-        $hashSuspect = \App\Models\BezettingLegacyNikMap::hashFromRaw('000.0716.0032.0032');
+        $hashWritten = BezettingLegacyNikMap::hashFromRaw('000.0716.0030.0030');
+        $hashNoRows = BezettingLegacyNikMap::hashFromRaw('000.0716.0031.0031');
+        $hashSuspect = BezettingLegacyNikMap::hashFromRaw('000.0716.0032.0032');
 
         $run = BezettingBackfillRun::create([
             'status' => BezettingBackfillRun::STATUS_STAGED,
@@ -486,7 +488,7 @@ class BezettingBackfillServiceTest extends TestCase
         $this->assertDatabaseMissing('bezetting_legacy_nik_maps', ['legacy_nik_hash' => $hashSuspect]);
 
         $this->service()->rollback($approved, $this->checker, 'Pembatalan uji coba crosswalk');
-        $this->assertSame(0, \App\Models\BezettingLegacyNikMap::count());
+        $this->assertSame(0, BezettingLegacyNikMap::count());
     }
 
     public function test_rollback_enforces_lifo_order_when_older_completed_run_exists(): void
@@ -523,6 +525,45 @@ class BezettingBackfillServiceTest extends TestCase
 
         $this->assertSame(BezettingBackfillRun::STATUS_ROLLED_BACK, $run2025->fresh()->status);
         $this->assertSame(BezettingBackfillRun::STATUS_ROLLED_BACK, $run2026->fresh()->status);
+    }
+
+    public function test_recap_preserves_file_name_for_unmapped_legacy_excluded_rows(): void
+    {
+        $hashUnmapped = BezettingLegacyNikMap::hashFromRaw('000.0716.0099.0099');
+        $run = BezettingBackfillRun::create([
+            'status' => BezettingBackfillRun::STATUS_STAGED, 'maker_id' => $this->maker->id, 'maker_name' => $this->maker->name,
+            'files' => [['name' => 'Bez Januari 2015.xls', 'period' => '2015-01', 'sha256' => str_repeat('d', 64), 'rows' => 1, 'issues' => 0, 'warnings' => []]],
+            'period_from' => '2015-01', 'period_to' => '2015-01',
+            'payload' => ['snapshots' => [['period' => '2015-01', 'rows' => [['row' => 1, 'nik' => '', 'legacy_nik_hash' => $hashUnmapped, 'is_legacy_nik' => true, 'nama' => 'Pensiunan Lama 2015', 'jabatan' => 'Asisten Kepala', 'unit' => 'Kebun Parindu', 'golongan' => 'IIIC/02', 'tanggal_dalam_jabatan' => null, 'tmt_unit_kerja' => '2014-01-01', 'tanggal_lahir' => null, 'tanggal_pensiun' => null]], 'issues' => []]]],
+        ]);
+
+        $recap = $this->service()->recap($run);
+
+        $this->assertCount(1, $recap['excluded']);
+        $this->assertSame('Pensiunan Lama 2015', $recap['excluded'][0]['nama']);
+        $this->assertSame(BackfillPlanner::EXCLUDED_LEGACY_UNMAPPED, $recap['excluded'][0]['reason']);
+    }
+
+    public function test_approve_logs_warning_when_persisted_legacy_crosswalk_conflicts(): void
+    {
+        $empA = Employee::factory()->create(['tmt_bekerja' => '2000-01-01', 'nik' => '99000034', 'jabatan' => 'Manajer Kebun', 'unit_kerja' => 'Kebun Parindu', 'tanggal_dalam_jabatan' => '2026-07-01', 'tmt_unit_kerja' => '2026-07-01']);
+        $empB = Employee::factory()->create(['tmt_bekerja' => '2000-01-01', 'nik' => '99000035', 'jabatan' => 'Manajer Kebun', 'unit_kerja' => 'Kebun Parindu', 'tanggal_dalam_jabatan' => '2026-07-01', 'tmt_unit_kerja' => '2026-07-01']);
+        $sharedHash = BezettingLegacyNikMap::hashFromRaw('000.0716.0034.0034');
+        BezettingLegacyNikMap::create(['legacy_nik_hash' => $sharedHash, 'employee_nik' => $empA->nik]);
+
+        $run = BezettingBackfillRun::create([
+            'status' => BezettingBackfillRun::STATUS_STAGED, 'maker_id' => $this->maker->id, 'maker_name' => $this->maker->name,
+            'files' => [['name' => 'Bez Januari 2026.xls', 'period' => '2026-01', 'sha256' => str_repeat('e', 64), 'rows' => 1, 'issues' => 0, 'warnings' => []]],
+            'period_from' => '2026-01', 'period_to' => '2026-01',
+            'payload' => ['snapshots' => [['period' => '2026-01', 'rows' => [['row' => 1, 'nik' => $empB->nik, 'legacy_nik_hash' => $sharedHash, 'is_legacy_nik' => false, 'nama' => $empB->nama, 'jabatan' => 'Asisten Kepala', 'unit' => 'Kebun Parindu', 'golongan' => 'IIIC/02', 'tanggal_dalam_jabatan' => '2025-01-01', 'tmt_unit_kerja' => '2025-01-01', 'tanggal_lahir' => null, 'tanggal_pensiun' => null]], 'issues' => []]]],
+        ]);
+
+        Log::spy();
+        $this->service()->submit($run, $this->maker);
+        $this->service()->approve($run, $this->checker);
+
+        Log::shouldHaveReceived('warning')->once();
+        $this->assertSame($empA->nik, BezettingLegacyNikMap::where('legacy_nik_hash', $sharedHash)->value('employee_nik'));
     }
 
     private function committedRunFromFreshFiles(): BezettingBackfillRun

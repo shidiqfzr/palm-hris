@@ -260,7 +260,7 @@ class BezettingWorkbookReader
         for ($row = $headerRow + 1; $row <= $lastRow; $row++) {
             $nama = trim((string) preg_replace('/\s+/u', ' ', (string) $sheet->getCell([$columns['nama'], $row])->getValue()));
             $rawNikValue = $sheet->getCell([$columns['nik'], $row])->getValue();
-            $rawNik = trim((string) preg_replace('/\s+/u', ' ', (string) $rawNikValue));
+            $rawNik = $this->rawIdString($rawNikValue);
             $jabatan = trim((string) preg_replace('/\s+/u', ' ', (string) $sheet->getCell([$columns['jabatan'], $row])->getValue()));
             $golonganCell = trim((string) $sheet->getCell([$columns['golongan'], $row])->getValue());
 
@@ -359,19 +359,29 @@ class BezettingWorkbookReader
     private function extractCompanionLegacyHash(Worksheet $sheet, int $row, array $columns): ?string
     {
         if (isset($columns['legacy_nik'])) {
-            return BezettingLegacyNikMap::hashFromRaw((string) $sheet->getCell([$columns['legacy_nik'], $row])->getValue());
+            return BezettingLegacyNikMap::hashFromRaw($this->rawIdString($sheet->getCell([$columns['legacy_nik'], $row])->getValue()));
         }
 
         $nikCol = $columns['nik'];
         $jabatanCol = $columns['jabatan'];
         for ($col = $nikCol + 1; $col < $jabatanCol; $col++) {
-            $hash = BezettingLegacyNikMap::hashFromRaw((string) $sheet->getCell([$col, $row])->getValue());
+            $hash = BezettingLegacyNikMap::hashFromRaw($this->rawIdString($sheet->getCell([$col, $row])->getValue()));
             if ($hash !== null) {
                 return $hash;
             }
         }
 
         return null;
+    }
+
+    /** Formats numeric cell values (including 14–15 digit floats >= 1e14) without scientific notation. */
+    private function rawIdString(mixed $value): string
+    {
+        if (is_int($value) || (is_float($value) && floor($value) === $value)) {
+            return sprintf('%.0f', $value);
+        }
+
+        return trim((string) preg_replace('/\s+/u', ' ', (string) $value));
     }
 
     /** NIK as text: numbers lose no digits but keep no decimals; spaces are removed. */

@@ -17,6 +17,7 @@ use App\Support\HrisPermission;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\Log;
 
 /**
  * Governed lifecycle of a Bezetting backfill run (DOMAIN.md §5.5, SECURITY.md §4.4 and §5 item 1c):
@@ -231,18 +232,23 @@ class BezettingBackfillService
             // Persist conflict-free hashed legacy PTPN XIII → 8-digit NIK links from dual-ID rows for older runs (2012–Sep 2022).
             $legacyPairs = $this->planner->identitySafeLegacyPairs($locked->payload['snapshots'] ?? [], $plan['excluded']);
             if ($legacyPairs !== []) {
-                $existingHashes = BezettingLegacyNikMap::query()->whereIn('legacy_nik_hash', array_keys($legacyPairs))->pluck('legacy_nik_hash')->flip();
+                $existing = BezettingLegacyNikMap::query()->whereIn('legacy_nik_hash', array_keys($legacyPairs))->pluck('employee_nik', 'legacy_nik_hash');
                 $toInsert = [];
                 foreach ($legacyPairs as $hash => $nik) {
-                    if (! $existingHashes->has($hash)) {
-                        $toInsert[] = [
-                            'legacy_nik_hash' => $hash,
-                            'employee_nik' => $nik,
-                            'source_run_id' => $locked->id,
-                            'created_at' => $now,
-                            'updated_at' => $now,
-                        ];
+                    if ($existing->has($hash)) {
+                        if ((string) $existing->get($hash) !== $nik) {
+                            Log::warning('Bezetting legacy NIK crosswalk conflict skipped.', ['run_id' => $locked->id]);
+                        }
+
+                        continue;
                     }
+                    $toInsert[] = [
+                        'legacy_nik_hash' => $hash,
+                        'employee_nik' => $nik,
+                        'source_run_id' => $locked->id,
+                        'created_at' => $now,
+                        'updated_at' => $now,
+                    ];
                 }
                 foreach (array_chunk($toInsert, 200) as $chunk) {
                     BezettingLegacyNikMap::query()->insert($chunk);
@@ -467,7 +473,7 @@ class BezettingBackfillService
                     $fileNames[(string) $row['nik']] ??= trim((string) ($row['nama'] ?? ''));
                 }
             }
-            $excluded = collect($plan['excluded'])->map(fn (array $item, $nik) => ['nik' => (string) $nik, 'nama' => $fileNames[(string) $nik] ?? '', 'reason' => $item['reason'],
+            $excluded = collect($plan['excluded'])->map(fn (array $item, $nik) => ['nik' => (string) $nik, 'nama' => (string) ($item['nama'] ?? ($fileNames[(string) $nik] ?? '')), 'reason' => $item['reason'],
                 'alasan' => BackfillPlanner::EXCLUSION_LABELS[$item['reason']] ?? $item['reason'], 'periode' => $item['periode'] ?? null])->values()->all();
         }
 

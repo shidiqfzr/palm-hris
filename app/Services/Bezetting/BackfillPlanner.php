@@ -142,20 +142,32 @@ class BackfillPlanner
 
         // 0. Resolve legacy-only PTPN XIII rows (pre-Oct 2022) via persisted + conflict-free in-run crosswalk.
         $excluded = [];
+        $fileNames = [];
         $crosswalk = $this->buildCrosswalk($snapshots);
         foreach ($snapshots as &$snapshot) {
             $resolvedRows = [];
             foreach ($snapshot['rows'] as $row) {
+                $rowName = trim((string) ($row['nama'] ?? ''));
                 if (! empty($row['is_legacy_nik'])) {
                     $hash = (string) ($row['legacy_nik_hash'] ?? '');
                     if ($hash !== '' && isset($crosswalk[$hash])) {
                         $row['nik'] = $crosswalk[$hash];
+                        if ($rowName !== '') {
+                            $fileNames[$row['nik']] ??= $rowName;
+                        }
                         $resolvedRows[] = $row;
                     } elseif ($hash !== '') {
-                        $excluded['L:'.substr($hash, 0, 8)] ??= ['reason' => self::EXCLUDED_LEGACY_UNMAPPED, 'periode' => $snapshot['period']];
+                        $key = 'L:'.substr($hash, 0, 8);
+                        if ($rowName !== '') {
+                            $fileNames[$key] ??= $rowName;
+                        }
+                        $excluded[$key] ??= ['reason' => self::EXCLUDED_LEGACY_UNMAPPED, 'periode' => $snapshot['period'], 'nama' => $fileNames[$key] ?? ''];
                     }
 
                     continue;
+                }
+                if ($rowName !== '' && (string) ($row['nik'] ?? '') !== '') {
+                    $fileNames[(string) $row['nik']] ??= $rowName;
                 }
                 $resolvedRows[] = $row;
             }
@@ -309,13 +321,20 @@ class BackfillPlanner
             }
 
             if ($this->startsBeforeHire($personRows, $hired->get($nik))) {
-                $excluded[$nik] = ['reason' => self::EXCLUDED_BEFORE_HIRE, 'periode' => null];
+                $excluded[$nik] = ['reason' => self::EXCLUDED_BEFORE_HIRE, 'periode' => null, 'nama' => $fileNames[$nik] ?? ''];
 
                 continue;
             }
 
             if (! $this->consistent($personRows)) {
-                $excluded[$nik] = ['reason' => self::EXCLUDED_DATE_CONFLICT, 'periode' => null];
+                $excluded[$nik] = ['reason' => self::EXCLUDED_DATE_CONFLICT, 'periode' => null, 'nama' => $fileNames[$nik] ?? ''];
+
+                continue;
+            }
+
+            // Mid-batch already-done: all segments fell >= $cutoff while overlapping an already-reconstructed bezetting period.
+            if ($personRows === [] && $own->contains('sumber', JobHistory::SUMBER_BEZETTING) && ($result['first_seen'].'-01') >= $cutoff) {
+                $excluded[$nik] = ['reason' => self::EXCLUDED_ALREADY_DONE, 'periode' => null, 'nama' => $fileNames[$nik] ?? ''];
 
                 continue;
             }
@@ -334,6 +353,11 @@ class BackfillPlanner
             }
             array_push($rows, ...$personRows);
         }
+
+        foreach ($excluded as $key => &$item) {
+            $item['nama'] ??= $fileNames[(string) $key] ?? '';
+        }
+        unset($item);
 
         $blocking = array_values($this->blocking);
         usort($blocking, fn (array $a, array $b) => [$a['kind'], $a['text']] <=> [$b['kind'], $b['text']]);
@@ -423,7 +447,8 @@ class BackfillPlanner
     private function buildCrosswalk(array $snapshots): array
     {
         $persisted = BezettingLegacyNikMap::query()->pluck('employee_nik', 'legacy_nik_hash')->map(fn ($n) => (string) $n)->all();
-        $inRun = $this->identitySafeLegacyPairs($snapshots);
+        $unsafeExcluded = $this->preDetectUnsafeDualIdNiks($snapshots);
+        $inRun = $this->identitySafeLegacyPairs($snapshots, $unsafeExcluded);
 
         foreach ($inRun as $hash => $nik) {
             if (! isset($persisted[$hash])) {
@@ -432,6 +457,57 @@ class BackfillPlanner
         }
 
         return $persisted;
+    }
+
+    /**
+     * Detects duplicate-in-file or identity-mismatched 8-digit NIKs on non-legacy rows before Step 0 so suspect rows
+     * never enter the in-run crosswalk.
+     *
+     * @param  list<array{period: string, rows: list<array<string, mixed>>}>  $snapshots
+     * @return array<string, array{reason: string, periode: ?string}>
+     */
+    private function preDetectUnsafeDualIdNiks(array $snapshots): array
+    {
+        $unsafe = [];
+        $identity = [];
+        foreach ($snapshots as $snapshot) {
+            $counts = [];
+            foreach ($snapshot['rows'] as $row) {
+                if (! empty($row['is_legacy_nik'])) {
+                    continue;
+                }
+                $nik = (string) ($row['nik'] ?? '');
+                if ($nik === '') {
+                    continue;
+                }
+                $counts[$nik] = ($counts[$nik] ?? 0) + 1;
+                $identity[$nik]['names'][] = self::nameWords((string) ($row['nama'] ?? ''));
+                if (! empty($row['tanggal_lahir'])) {
+                    $identity[$nik]['births'][(string) $row['tanggal_lahir']] = true;
+                }
+            }
+            foreach ($counts as $nik => $c) {
+                if (strlen($nik) !== 8) {
+                    $unsafe[$nik] = ['reason' => self::EXCLUDED_NIK_FORMAT, 'periode' => $snapshot['period']];
+                } elseif ($c > 1) {
+                    $unsafe[$nik] = ['reason' => self::EXCLUDED_DUPLICATE, 'periode' => $snapshot['period']];
+                }
+            }
+        }
+
+        $births = $identity === [] ? collect() : Employee::query()->whereIn('nik', array_keys($identity))->pluck('tanggal_lahir', 'nik')->mapWithKeys(fn ($date, $n) => [(string) $n => $date?->toDateString()]);
+        foreach ($identity as $nik => $facts) {
+            if (isset($unsafe[$nik])) {
+                continue;
+            }
+            $empBirth = $births->get($nik);
+            if (self::namesDisagree($facts['names']) || count($facts['births'] ?? []) > 1
+                || ($empBirth !== null && isset($facts['births']) && ! isset($facts['births'][$empBirth]))) {
+                $unsafe[$nik] = ['reason' => self::EXCLUDED_IDENTITY, 'periode' => null];
+            }
+        }
+
+        return $unsafe;
     }
 
     /**
@@ -582,7 +658,7 @@ class BackfillPlanner
         $earliest = (new DateTimeImmutable($start))->modify('-'.self::RECORDED_TOLERANCE_DAYS.' days')->format('Y-m-d');
 
         return $own->contains(fn ($h) => $h->tmt_awal->toDateString() <= $start
-            && $h->tmt_awal->toDateString() >= $earliest
+            && ($h->sumber === JobHistory::SUMBER_BEZETTING || $h->tmt_awal->toDateString() >= $earliest)
             && ($h->tmt_akhir === null || $h->tmt_akhir->toDateString() >= $start)
             && BezettingNameMapping::normalize((string) $h->jabatan) === BezettingNameMapping::normalize($segment['jabatan'])
             && BezettingNameMapping::normalize((string) $h->unit_kerja) === BezettingNameMapping::normalize($segment['unit']));

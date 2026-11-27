@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\BezettingLegacyNikMap;
 use App\Models\BezettingNameMapping;
 use App\Models\Employee;
 use App\Models\JobHistory;
@@ -451,12 +452,12 @@ class BackfillPlannerTest extends TestCase
         $conflictA = $this->employee('99000024', 'Manajer Kebun', '2026-01-01');
         $conflictB = $this->employee('99000025', 'Manajer Kebun', '2026-01-01');
 
-        $hashPersisted = \App\Models\BezettingLegacyNikMap::hashFromRaw('000.0716.0001.0001');
-        $hashInRun = \App\Models\BezettingLegacyNikMap::hashFromRaw('000.0716.0002.0002');
-        $hashUnmapped = \App\Models\BezettingLegacyNikMap::hashFromRaw('000.0716.0003.0003');
-        $hashConflict = \App\Models\BezettingLegacyNikMap::hashFromRaw('000.0716.0004.0004');
+        $hashPersisted = BezettingLegacyNikMap::hashFromRaw('000.0716.0001.0001');
+        $hashInRun = BezettingLegacyNikMap::hashFromRaw('000.0716.0002.0002');
+        $hashUnmapped = BezettingLegacyNikMap::hashFromRaw('000.0716.0003.0003');
+        $hashConflict = BezettingLegacyNikMap::hashFromRaw('000.0716.0004.0004');
 
-        \App\Models\BezettingLegacyNikMap::create([
+        BezettingLegacyNikMap::create([
             'legacy_nik_hash' => $hashPersisted,
             'employee_nik' => $persistedEmp->nik,
         ]);
@@ -500,5 +501,55 @@ class BackfillPlannerTest extends TestCase
             ['kind' => 'jabatan', 'text' => 'ASISTEN LAMA', 'count' => 2, 'decision' => 'keep', 'target' => null],
             ['kind' => 'unit', 'text' => 'KBN PARINDU', 'count' => 2, 'decision' => 'map', 'target' => 'Kebun Parindu'],
         ], $plan['decided']);
+    }
+
+    public function test_in_run_crosswalk_ignores_duplicate_and_identity_excluded_employees(): void
+    {
+        $dupEmp = $this->employee('99000027', 'Manajer Kebun', '2026-01-01');
+        $hashDup = BezettingLegacyNikMap::hashFromRaw('000.0716.0027.0027');
+
+        $plan = $this->planner()->plan($this->snapshots([
+            '2022-09' => [
+                $this->row('', 'Asisten Kepala', extra: ['is_legacy_nik' => true, 'legacy_nik_hash' => $hashDup, 'tanggal_dalam_jabatan' => '2021-01-01']),
+            ],
+            '2022-10' => [
+                $this->row($dupEmp->nik, 'Asisten Kepala', extra: ['is_legacy_nik' => false, 'legacy_nik_hash' => $hashDup, 'tanggal_dalam_jabatan' => '2021-01-01']),
+                $this->row($dupEmp->nik, 'Asisten Afdeling I', extra: ['is_legacy_nik' => false, 'legacy_nik_hash' => $hashDup, 'tanggal_dalam_jabatan' => '2021-01-01']),
+            ],
+        ]));
+
+        $this->assertSame(BackfillPlanner::EXCLUDED_DUPLICATE, $plan['excluded'][$dupEmp->nik]['reason']);
+        $this->assertSame(BackfillPlanner::EXCLUDED_LEGACY_UNMAPPED, $plan['excluded']['L:'.substr($hashDup, 0, 8)]['reason']);
+    }
+
+    public function test_mid_batch_already_done_and_prior_bezetting_followup_suppression(): void
+    {
+        $emp = $this->employee('99000028', 'Manajer Kebun', '2026-07-01');
+        JobHistory::create([
+            'employee_nik' => $emp->nik, 'jabatan' => 'Asisten Kepala', 'unit_kerja' => 'Kebun Parindu', 'status_penugasan' => 'Definitif',
+            'tmt_awal' => '2025-03-01', 'tmt_akhir' => '2026-06-30', 'is_applied' => true, 'sumber' => JobHistory::SUMBER_BEZETTING,
+        ]);
+
+        // Employee only appears in 2025-06 (mid-batch, after 2025-03 cutoff) and leaves in 2025-07 -> should be EXCLUDED_ALREADY_DONE, not keluar_daftar.
+        $plan = $this->planner()->plan($this->snapshots([
+            '2025-01' => [],
+            '2025-06' => [$this->row('99000028', 'Asisten Kepala', extra: ['tanggal_dalam_jabatan' => '2025-06-01'])],
+            '2025-07' => [],
+        ]));
+
+        $this->assertSame(BackfillPlanner::EXCLUDED_ALREADY_DONE, $plan['excluded']['99000028']['reason']);
+        $this->assertSame([], $plan['info']['keluar_daftar']);
+
+        // Overlapping movement >62 days into an already-reconstructed bezetting row should not fire perpindahan_belum_tercatat.
+        $emp2 = $this->employee('99000029', 'Manajer Kebun', '2026-07-01');
+        JobHistory::create([
+            'employee_nik' => $emp2->nik, 'jabatan' => 'Asisten Kepala', 'unit_kerja' => 'Kebun Parindu', 'status_penugasan' => 'Definitif',
+            'tmt_awal' => '2025-02-01', 'tmt_akhir' => '2026-06-30', 'is_applied' => true, 'sumber' => JobHistory::SUMBER_BEZETTING,
+        ]);
+        $plan2 = $this->planner()->plan($this->snapshots([
+            '2025-01' => [$this->row('99000029', 'Asisten Afdeling I', extra: ['tanggal_dalam_jabatan' => '2024-01-01'])],
+            '2025-06' => [$this->row('99000029', 'Asisten Kepala', extra: ['tanggal_dalam_jabatan' => '2025-06-01'])],
+        ]));
+        $this->assertSame([], $plan2['info']['perpindahan_belum_tercatat']);
     }
 }

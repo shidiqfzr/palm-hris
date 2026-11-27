@@ -255,4 +255,23 @@ class BezettingBackfillDetailTest extends TestCase
         $mapping = BezettingNameMapping::decisionFor('unit', 'KEBUN PARINDU (K.SAWIT)');
         $this->assertSame(BezettingNameMapping::DECISION_KEEP, $mapping?->decision);
     }
+
+    public function test_bulk_actions_refuse_pending_run_and_keep_clears_stale_target_suggestion(): void
+    {
+        $run = $this->stagedBezettingRun($this->maker, 'KEBUN PARINDU (K.SAWIT)');
+        $key = BezettingBackfillDetail::key('unit', 'KEBUN PARINDU (K.SAWIT)');
+
+        Livewire::actingAs($this->maker)->test(BezettingBackfillDetail::class, ['run' => $run])
+            ->assertSet("targets.{$key}", 'Kebun Parindu')
+            ->call('keep', $key)
+            ->assertSet("targets.{$key}", null)
+            ->call('submit');
+
+        // Even if called directly on a pending run, bulk helpers must refuse without mutating.
+        $countBefore = BezettingNameMapping::count();
+        Livewire::actingAs($this->checker)->test(BezettingBackfillDetail::class, ['run' => $run->fresh()])
+            ->call('applySuggestions')
+            ->call('keepUnmatched');
+        $this->assertSame($countBefore, BezettingNameMapping::count());
+    }
 }
